@@ -1,0 +1,15 @@
+export default defineNuxtConfig({
+  compatibilityDate: '2025-07-15',
+  devtools: { enabled: false },
+  modules: ['@nuxtjs/tailwindcss'],
+  css: ['~/assets/css/main.css'],
+  nitro: {
+    preset: 'node-server'
+  },
+  runtimeConfig: {
+    aiProvider: process.env.AI_PROVIDER || 'gpt',
+    public: {
+      appName: 'AI 猜动画名'
+    }
+  }
+})

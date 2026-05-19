@@ -1,0 +1,21 @@
+{
+  "name": "anime-guess-ai",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "bun --env-file=.env node_modules/.bin/nuxt dev --host 0.0.0.0",
+    "start": "bun --env-file=.env .output/server/index.mjs",
+    "test": "bun test",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "nuxt": "^4.4.6",
+    "vue": "^3.5.34",
+    "vue-router": "^5.0.7"
+  },
+  "devDependencies": {
+    "@nuxtjs/tailwindcss": "^6.14.0",
+    "typescript": "^6.0.3"
+  }
+}
