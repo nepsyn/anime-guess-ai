@@ -24,11 +24,15 @@ export async function initDb() {
     subject_id INTEGER NOT NULL,
     filters TEXT NOT NULL,
     used_hints TEXT NOT NULL DEFAULT '[]',
+    hint_deck TEXT NOT NULL DEFAULT '[]',
     asked TEXT NOT NULL DEFAULT '[]',
+    score INTEGER NOT NULL DEFAULT 20,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
     FOREIGN KEY(subject_id) REFERENCES subjects(id)
   )`
+  try { await db`ALTER TABLE games ADD COLUMN hint_deck TEXT NOT NULL DEFAULT '[]'` } catch {}
+  try { await db`ALTER TABLE games ADD COLUMN score INTEGER NOT NULL DEFAULT 20` } catch {}
   initialized = true
 }
 

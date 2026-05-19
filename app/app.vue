@@ -23,6 +23,7 @@ const selected = ref<SearchResult | null>(null)
 const revealedAnswer = ref<Answer | null>(null)
 const remainingHints = ref(0)
 const totalHints = ref(10)
+const score = ref(0)
 const chat = ref<ChatItem[]>([
   { role: 'system', text: '设置筛选条件后开始游戏。AI 会从 Bangumi 随机挑一部动画，你可以问是/不是/不确定问题。' }
 ])
@@ -71,11 +72,12 @@ function reveal(answer: Answer, prefix = '答案') {
 async function startGame() {
   loading.value = true
   try {
-    const res = await $fetch<{ sessionId: string; message: string; initialHint?: string; remainingHints: number; totalHints: number }>('/api/game/start', { method: 'POST', body: { filters } })
+    const res = await $fetch<{ sessionId: string; message: string; initialHint?: string; remainingHints: number; totalHints: number; score: number }>('/api/game/start', { method: 'POST', body: { filters, provider: provider.value } })
     sessionId.value = res.sessionId
     revealedAnswer.value = null
     remainingHints.value = res.remainingHints
     totalHints.value = res.totalHints
+    score.value = res.score
     settingsOpen.value = false
     clearGuessSearch()
     chat.value = [
@@ -96,7 +98,8 @@ async function ask() {
   push({ role: 'player', text: q })
   loading.value = true
   try {
-    const res = await $fetch<{ answer: string; reason: string }>('/api/game/ask', { method: 'POST', body: { sessionId: sessionId.value, question: q, provider: provider.value } })
+    const res = await $fetch<{ answer: string; reason: string; score: number }>('/api/game/ask', { method: 'POST', body: { sessionId: sessionId.value, question: q, provider: provider.value } })
+    score.value = res.score
     push({ role: 'ai', text: `${res.answer}${res.reason ? `：${res.reason}` : ''}`, tone: res.answer === '是' ? 'ok' : res.answer === '不是' ? 'bad' : 'info' })
   } catch (err: any) {
     push({ role: 'system', text: err?.data?.message || err?.message || 'AI 回答失败', tone: 'bad' })
@@ -109,9 +112,10 @@ async function hint() {
   if (!canHint.value) return
   loading.value = true
   try {
-    const res = await $fetch<{ hint: string; remainingHints: number; totalHints: number; exhausted?: boolean; message?: string }>('/api/game/hint', { method: 'POST', body: { sessionId: sessionId.value } })
+    const res = await $fetch<{ hint: string; remainingHints: number; totalHints: number; score: number; exhausted?: boolean; message?: string }>('/api/game/hint', { method: 'POST', body: { sessionId: sessionId.value } })
     remainingHints.value = res.remainingHints
     totalHints.value = res.totalHints
+    score.value = res.score
     if (res.exhausted) {
       push({ role: 'system', text: res.message || '提示次数已用完。', tone: 'info' })
     } else {
@@ -130,7 +134,8 @@ async function surrender() {
   if (!ok) return
   loading.value = true
   try {
-    const res = await $fetch<{ answer: Answer; message: string }>('/api/game/surrender', { method: 'POST', body: { sessionId: sessionId.value } })
+    const res = await $fetch<{ answer: Answer; message: string; score: number }>('/api/game/surrender', { method: 'POST', body: { sessionId: sessionId.value } })
+    score.value = res.score
     reveal(res.answer, '投降成功，最终答案')
   } catch (err: any) {
     push({ role: 'system', text: err?.data?.message || err?.message || '投降失败', tone: 'bad' })
@@ -156,7 +161,8 @@ async function submitGuess(item = selected.value) {
   loading.value = true
   try {
     const guessedTitle = titleOf(item)
-    const res = await $fetch<{ correct: boolean; message: string; answer?: Answer }>('/api/game/guess', { method: 'POST', body: { sessionId: sessionId.value, subjectId: item.id } })
+    const res = await $fetch<{ correct: boolean; sameSeries?: boolean; message: string; score: number; answer?: Answer }>('/api/game/guess', { method: 'POST', body: { sessionId: sessionId.value, subjectId: item.id } })
+    score.value = res.score
     push({ role: 'player', text: '我猜是：', boldText: guessedTitle, image: item.image })
     clearGuessSearch()
     if (res.correct && res.answer) {
@@ -186,7 +192,10 @@ async function submitGuess(item = selected.value) {
             <i class="fa-solid fa-gear mr-2"></i>设置
           </button>
         </div>
-        <button :disabled="loading" class="mt-5 rounded-2xl bg-indigo-600 px-6 py-3 font-semibold text-white shadow-lg shadow-indigo-200 hover:bg-indigo-500 disabled:opacity-50" @click="startGame">{{ loading ? '处理中…' : '开始新游戏' }}</button>
+        <div class="mt-5 flex flex-wrap items-center gap-3">
+          <button :disabled="loading" class="rounded-2xl bg-indigo-600 px-6 py-3 font-semibold text-white shadow-lg shadow-indigo-200 hover:bg-indigo-500 disabled:opacity-50" @click="startGame">{{ loading ? '处理中…' : '开始新游戏' }}</button>
+          <p v-if="canPlay" class="rounded-2xl border border-indigo-100 bg-white px-4 py-3 text-sm font-semibold text-indigo-700 shadow-sm">当前得分：<span class="text-xl text-indigo-600">{{ score }}</span> / 20</p>
+        </div>
       </section>
 
       <section v-if="revealedAnswer" class="glass rounded-3xl p-5">
@@ -204,7 +213,10 @@ async function submitGuess(item = selected.value) {
       <section class="glass rounded-3xl p-5">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <h2 class="font-semibold text-slate-950">提问</h2>
-          <p v-if="canPlay" class="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">剩余提示次数：{{ remainingHints }} / {{ totalHints }}</p>
+          <div class="flex flex-wrap items-center gap-2">
+            <p v-if="canPlay" class="rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">当前得分：{{ score }} / 20</p>
+            <p v-if="canPlay" class="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">剩余提示次数：{{ remainingHints }} / {{ totalHints }}</p>
+          </div>
         </div>
         <div class="mt-3 flex flex-wrap gap-2">
           <input v-model="question" :disabled="!canPlay" class="min-w-[260px] flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" placeholder="例如：它是原创动画吗？有佐仓绫音参与吗？" @keyup.enter="ask" />
@@ -234,10 +246,10 @@ async function submitGuess(item = selected.value) {
               <p class="leading-6">
                 <span class="mr-2 text-xs uppercase text-slate-500">{{ item.role }}</span>
                 <template v-if="item.boldText">
-                  <span>{{ item.text }}</span><strong class="font-bold text-slate-950">{{ item.boldText }}</strong>
+                  <span>{{ item.text }}</span><strong class="ml-1 font-bold text-slate-950">{{ item.boldText }}</strong>
                 </template>
                 <template v-else>
-                  <span v-for="(part, partIndex) in highlightParts(item.text)" :key="partIndex" :class="part.highlight ? 'rounded-md bg-yellow-200 px-1 font-semibold text-yellow-950 ring-1 ring-yellow-300' : ''">{{ part.text }}</span>
+                  <span v-for="(part, partIndex) in highlightParts(item.text)" :key="partIndex" :class="part.highlight ? 'mx-0.5 rounded-md bg-yellow-200 px-1 font-semibold text-yellow-950 ring-1 ring-yellow-300' : ''">{{ part.text }}</span>
                 </template>
               </p>
             </div>

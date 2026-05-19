@@ -11,9 +11,10 @@ export default defineEventHandler(async (event) => {
   if (!rows.length) throw createError({ statusCode: 404, statusMessage: '游戏不存在或已过期' })
 
   const subject = JSON.parse(rows[0].payload)
-  await db`UPDATE games SET updated_at = ${Date.now()} WHERE id = ${sessionId}`
+  await db`UPDATE games SET score = 0, updated_at = ${Date.now()} WHERE id = ${sessionId}`
   return {
     answer: publicAnswer(subject),
+    score: 0,
     message: '答案揭晓。'
   }
 })

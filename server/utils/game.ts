@@ -1,4 +1,12 @@
 export const HINT_LIMIT = 10
+export const INITIAL_SCORE = 20
+export const QUESTION_COST = 1
+export const HINT_COST = 2
+
+export function deductScore(score: number, cost: number) {
+  const current = Number.isFinite(Number(score)) ? Number(score) : INITIAL_SCORE
+  return Math.max(0, current - cost)
+}
 
 export type PlayerFilters = {
   yearFrom?: number | null
@@ -118,10 +126,29 @@ function getInfoboxList(subject: any, keys: string[]) {
   return []
 }
 
+function titleTokens(subject: any) {
+  const names = [subject?.name, subject?.name_cn, ...(subject?.aliases || []).map((item: any) => item?.name || item)].filter(Boolean).map(String)
+  const tokens = new Set<string>()
+  for (const name of names) {
+    tokens.add(name.toLowerCase())
+    for (const part of name.split(/[\s:：!！?？~～\-_.·・、,，/（）()\[\]【】]+/)) {
+      const token = part.trim().toLowerCase()
+      if (token.length >= 2) tokens.add(token)
+    }
+  }
+  return [...tokens].filter(Boolean)
+}
+
+function isTitleRelated(value: string, subject: any) {
+  const lower = String(value || '').toLowerCase()
+  if (!lower) return false
+  return titleTokens(subject).some((token) => token.length >= 2 && (lower.includes(token) || token.includes(lower)))
+}
+
 function getTagNames(subject: any) {
   return (subject?.tags || [])
     .map((tag: any) => tag.name)
-    .filter((name: string) => name && !/^\d{4}(年|$)/.test(name) && !['TV', '剧场版', 'OVA', 'WEB', '日本', '欧美'].includes(name))
+    .filter((name: string) => name && !/^\d{4}(年|$)/.test(name) && !['TV', '剧场版', 'OVA', 'WEB', '日本', '欧美'].includes(name) && !isTitleRelated(name, subject))
 }
 
 function titleShape(subject: any, level = 0) {

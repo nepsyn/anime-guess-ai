@@ -1,6 +1,7 @@
 import { db, initDb, cleanupExpiredSubjects } from '../../utils/db'
 import { findRandomSubject, getRelatedSubjectIds, getSubject } from '../../utils/bangumi'
-import { HINT_LIMIT, pickHint } from '../../utils/game'
+import { generateHintDeck } from '../../utils/ai'
+import { HINT_LIMIT, INITIAL_SCORE } from '../../utils/game'
 
 const TTL_MS = Number(process.env.SUBJECT_CACHE_TTL_MS || 7 * 24 * 60 * 60 * 1000)
 
@@ -22,9 +23,10 @@ export default defineEventHandler(async (event) => {
   } else {
     subject = JSON.parse(cached[0].payload)
   }
-  const initialHint = pickHint(subject, new Set(), 0)
+  const hintDeck = await generateHintDeck(subject, body?.provider)
+  const initialHint = hintDeck[0]
   const sessionId = crypto.randomUUID()
-  await db`INSERT INTO games (id, subject_id, filters, used_hints, asked, created_at, updated_at)
-    VALUES (${sessionId}, ${subjectId}, ${JSON.stringify(filters)}, ${JSON.stringify([initialHint])}, '[]', ${Date.now()}, ${Date.now()})`
-  return { sessionId, message: '新游戏已开始。你可以继续提问、要提示，或直接搜索并提交答案。', initialHint, remainingHints: HINT_LIMIT - 1, totalHints: HINT_LIMIT }
+  await db`INSERT INTO games (id, subject_id, filters, used_hints, hint_deck, asked, score, created_at, updated_at)
+    VALUES (${sessionId}, ${subjectId}, ${JSON.stringify(filters)}, ${JSON.stringify([initialHint])}, ${JSON.stringify(hintDeck)}, '[]', ${INITIAL_SCORE}, ${Date.now()}, ${Date.now()})`
+  return { sessionId, message: '新游戏已开始。你可以继续提问、要提示，或直接搜索并提交答案。', initialHint, remainingHints: HINT_LIMIT - 1, totalHints: HINT_LIMIT, score: INITIAL_SCORE }
 })

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { normalizeFilters, isCorrectGuess, pickHint, buildHintDeck, HINT_LIMIT } from '../server/utils/game'
+import { normalizeFilters, isCorrectGuess, pickHint, buildHintDeck, HINT_LIMIT, deductScore } from '../server/utils/game'
 
 describe('normalizeFilters', () => {
   test('maps player filters to Bangumi search filter shape', () => {
@@ -29,6 +29,15 @@ describe('isCorrectGuess', () => {
   })
 })
 
+describe('deductScore', () => {
+  test('subtracts costs and never goes below zero', () => {
+    expect(deductScore(20, 1)).toBe(19)
+    expect(deductScore(19, 2)).toBe(17)
+    expect(deductScore(1, 2)).toBe(0)
+    expect(deductScore(0, 1)).toBe(0)
+  })
+})
+
 describe('pickHint', () => {
   test('generates a deterministic unrevealed hint from cached subject data', () => {
     const hint = pickHint({
@@ -47,14 +56,15 @@ describe('pickHint', () => {
     expect(hint).not.toContain('测试动画')
   })
 
-  test('prepares ten non-repeating hints per subject', () => {
+  test('prepares ten non-repeating hints per subject and removes title-related tags', () => {
     const deck = buildHintDeck({
       id: 1,
       name: 'test',
       name_cn: '测试动画',
+      aliases: [{ name: '测试别名' }],
       air_date: '2014-04-06',
       meta_tags: ['TV', '日本'],
-      tags: [{ name: '战斗' }, { name: '奇幻' }, { name: '漫画改' }, { name: '冒险' }, { name: '热血' }],
+      tags: [{ name: '测试动画' }, { name: '测试别名' }, { name: '战斗' }, { name: '奇幻' }, { name: '漫画改' }, { name: '冒险' }, { name: '热血' }],
       infobox: [
         { key: '主题歌演出', value: 'Aimer' },
         { key: '动画制作', value: 'ufotable' },
@@ -70,5 +80,6 @@ describe('pickHint', () => {
     expect(deck).toHaveLength(HINT_LIMIT)
     expect(new Set(deck).size).toBe(HINT_LIMIT)
     expect(deck.join('\n')).not.toContain('测试动画')
+    expect(deck.join('\n')).not.toContain('测试别名')
   })
 })
