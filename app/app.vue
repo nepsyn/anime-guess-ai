@@ -1,7 +1,7 @@
 <script setup lang="ts">
 type SearchResult = { id: number; name: string; name_cn?: string; date?: string; image?: string; score?: number; rank?: number }
 type Answer = { id: number; name: string; name_cn?: string; image?: string; url: string }
-type ChatItem = { role: 'system' | 'player' | 'ai'; text: string; tone?: 'ok' | 'bad' | 'info' }
+type ChatItem = { role: 'system' | 'player' | 'ai'; text: string; tone?: 'ok' | 'bad' | 'info'; image?: string; boldText?: string }
 
 const filters = reactive({
   yearFrom: 2010,
@@ -15,6 +15,7 @@ const filters = reactive({
 const provider = ref<'gpt' | 'gemini'>('gpt')
 const sessionId = ref('')
 const loading = ref(false)
+const settingsOpen = ref(false)
 const question = ref('')
 const guessText = ref('')
 const searchResults = ref<SearchResult[]>([])
@@ -31,7 +32,7 @@ const canPlay = computed(() => Boolean(sessionId.value))
 const canHint = computed(() => canPlay.value && remainingHints.value > 0)
 
 function push(item: ChatItem) {
-  chat.value.push(item)
+  chat.value.unshift(item)
 }
 
 function clearGuessSearch() {
@@ -42,6 +43,24 @@ function clearGuessSearch() {
 
 function answerTitle(answer: Answer) {
   return answer.name_cn || answer.name
+}
+
+function titleOf(item: SearchResult) {
+  return item.name_cn || item.name
+}
+
+function highlightParts(text: string) {
+  const parts: { text: string; highlight: boolean }[] = []
+  const pattern = /「[^」]+」/g
+  let last = 0
+  for (const match of text.matchAll(pattern)) {
+    const index = match.index ?? 0
+    if (index > last) parts.push({ text: text.slice(last, index), highlight: false })
+    parts.push({ text: match[0], highlight: true })
+    last = index + match[0].length
+  }
+  if (last < text.length) parts.push({ text: text.slice(last), highlight: false })
+  return parts
 }
 
 function reveal(answer: Answer, prefix = '答案') {
@@ -57,10 +76,11 @@ async function startGame() {
     revealedAnswer.value = null
     remainingHints.value = res.remainingHints
     totalHints.value = res.totalHints
+    settingsOpen.value = false
     clearGuessSearch()
     chat.value = [
-      { role: 'system', text: res.message, tone: 'ok' },
-      ...(res.initialHint ? [{ role: 'ai' as const, text: `初始提示：${res.initialHint}`, tone: 'info' as const }] : [])
+      ...(res.initialHint ? [{ role: 'ai' as const, text: `初始提示：${res.initialHint}`, tone: 'info' as const }] : []),
+      { role: 'system', text: res.message, tone: 'ok' }
     ]
   } catch (err: any) {
     push({ role: 'system', text: err?.data?.message || err?.message || '开始游戏失败', tone: 'bad' })
@@ -135,8 +155,9 @@ async function submitGuess(item = selected.value) {
   if (!item || !canPlay.value) return
   loading.value = true
   try {
+    const guessedTitle = titleOf(item)
     const res = await $fetch<{ correct: boolean; message: string; answer?: Answer }>('/api/game/guess', { method: 'POST', body: { sessionId: sessionId.value, subjectId: item.id } })
-    push({ role: 'player', text: `我猜是：${item.name_cn || item.name}` })
+    push({ role: 'player', text: '我猜是：', boldText: guessedTitle, image: item.image })
     clearGuessSearch()
     if (res.correct && res.answer) {
       reveal(res.answer, `🎉 ${res.message} 答案`)
@@ -153,81 +174,110 @@ async function submitGuess(item = selected.value) {
 
 <template>
   <main class="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(129,140,248,.28),_transparent_34%),radial-gradient(circle_at_bottom_right,_rgba(251,191,36,.24),_transparent_32%)] bg-slate-50 px-4 py-8 text-slate-900">
-    <div class="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[380px_1fr]">
+    <div class="mx-auto max-w-5xl space-y-5">
       <section class="glass rounded-3xl p-6">
-        <p class="text-sm font-medium text-indigo-600">Bangumi × AI</p>
-        <h1 class="mt-2 text-3xl font-bold text-slate-950">AI 辅助猜动画名</h1>
-        <p class="mt-3 text-sm leading-6 text-slate-600">AI 根据你的筛选条件从 Bangumi 随机抽取动画。开局会给出初始提示；每局共 10 轮提示，线索会逐步更接近核心信息。</p>
-
-        <div class="mt-6 grid grid-cols-2 gap-3 text-sm text-slate-700">
-          <label>起始年份<input v-model.number="filters.yearFrom" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" type="number" /></label>
-          <label>结束年份<input v-model.number="filters.yearTo" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" type="number" /></label>
-          <label>评分下限<input v-model.number="filters.ratingMin" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" step="0.1" type="number" /></label>
-          <label>评分上限<input v-model.number="filters.ratingMax" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" step="0.1" type="number" /></label>
-          <label>类型
-            <select v-model="filters.format" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
-              <option value="all">不限</option><option value="tv">TV</option><option value="movie">剧场版</option><option value="ova">OVA</option><option value="web">WEB</option>
-            </select>
-          </label>
-          <label>国家/地区
-            <select v-model="filters.country" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
-              <option value="all">不限</option><option value="japan">日本</option><option value="western">欧美</option>
-            </select>
-          </label>
-          <label class="col-span-2">标签（逗号/空格分隔）<input v-model="filters.tags" placeholder="战斗, 校园" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" /></label>
-          <label class="col-span-2">模型提供商
-            <select v-model="provider" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
-              <option value="gpt">GPT / OpenAI-compatible</option><option value="gemini">Gemini</option>
-            </select>
-          </label>
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <p class="text-sm font-medium text-indigo-600">Bangumi × AI</p>
+            <h1 class="mt-2 text-3xl font-bold text-slate-950">AI 辅助猜动画名</h1>
+            <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-600">AI 根据你的筛选条件从 Bangumi 随机抽取动画。开局会给出初始提示；每局共 10 轮提示，线索会逐步更接近核心信息。</p>
+          </div>
+          <button class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-700 shadow-sm hover:border-indigo-200 hover:bg-indigo-50" title="设置筛选条件" @click="settingsOpen = true">
+            <i class="fa-solid fa-gear mr-2"></i>设置
+          </button>
         </div>
-        <button :disabled="loading" class="mt-5 w-full rounded-2xl bg-indigo-600 px-4 py-3 font-semibold text-white shadow-lg shadow-indigo-200 hover:bg-indigo-500 disabled:opacity-50" @click="startGame">{{ loading ? '处理中…' : '开始新游戏' }}</button>
+        <button :disabled="loading" class="mt-5 rounded-2xl bg-indigo-600 px-6 py-3 font-semibold text-white shadow-lg shadow-indigo-200 hover:bg-indigo-500 disabled:opacity-50" @click="startGame">{{ loading ? '处理中…' : '开始新游戏' }}</button>
       </section>
 
-      <section class="space-y-4">
-        <div v-if="revealedAnswer" class="glass rounded-3xl p-5">
-          <h2 class="font-semibold text-slate-950">最终答案</h2>
-          <div class="mt-3 flex gap-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-            <img v-if="revealedAnswer.image" :src="revealedAnswer.image" class="h-40 w-28 rounded-xl object-cover shadow" />
-            <div>
-              <p class="text-xl font-bold text-slate-950">{{ answerTitle(revealedAnswer) }}</p>
-              <p v-if="revealedAnswer.name_cn && revealedAnswer.name_cn !== revealedAnswer.name" class="mt-1 text-sm text-slate-600">{{ revealedAnswer.name }}</p>
-              <a :href="revealedAnswer.url" target="_blank" class="mt-3 inline-block rounded-full bg-white px-3 py-1 text-sm font-medium text-indigo-600 shadow-sm">Bangumi #{{ revealedAnswer.id }}</a>
-            </div>
+      <section v-if="revealedAnswer" class="glass rounded-3xl p-5">
+        <h2 class="font-semibold text-slate-950">最终答案</h2>
+        <div class="mt-3 flex gap-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+          <img v-if="revealedAnswer.image" :src="revealedAnswer.image" class="h-40 w-28 rounded-xl object-cover shadow" />
+          <div>
+            <p class="text-xl font-bold text-slate-950">{{ answerTitle(revealedAnswer) }}</p>
+            <p v-if="revealedAnswer.name_cn && revealedAnswer.name_cn !== revealedAnswer.name" class="mt-1 text-sm text-slate-600">{{ revealedAnswer.name }}</p>
+            <a :href="revealedAnswer.url" target="_blank" class="mt-3 inline-block rounded-full bg-white px-3 py-1 text-sm font-medium text-indigo-600 shadow-sm">Bangumi #{{ revealedAnswer.id }}</a>
           </div>
         </div>
+      </section>
 
-        <div class="glass rounded-3xl p-5">
+      <section class="glass rounded-3xl p-5">
+        <div class="flex flex-wrap items-center justify-between gap-2">
           <h2 class="font-semibold text-slate-950">提问</h2>
-          <p v-if="canPlay" class="mt-1 text-xs text-slate-500">剩余提示次数：{{ remainingHints }} / {{ totalHints }}</p>
-          <div class="mt-3 flex flex-wrap gap-2">
-            <input v-model="question" :disabled="!canPlay" class="min-w-[220px] flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" placeholder="例如：它是原创动画吗？有佐仓绫音参与吗？" @keyup.enter="ask" />
-            <button class="rounded-2xl bg-emerald-500 px-4 font-semibold text-white shadow-sm disabled:opacity-40" :disabled="!canPlay || loading" @click="ask">问</button>
-            <button class="rounded-2xl bg-amber-500 px-4 font-semibold text-white shadow-sm disabled:opacity-40" :disabled="!canHint || loading" @click="hint">提示 {{ canPlay ? `(${remainingHints})` : '' }}</button>
-            <button class="rounded-2xl bg-rose-500 px-4 font-semibold text-white shadow-sm disabled:opacity-40" :disabled="!canPlay || loading" @click="surrender">投降</button>
-          </div>
+          <p v-if="canPlay" class="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">剩余提示次数：{{ remainingHints }} / {{ totalHints }}</p>
         </div>
-
-        <div class="glass rounded-3xl p-5">
-          <h2 class="font-semibold text-slate-950">提交答案</h2>
-          <input v-model="guessText" :disabled="!canPlay" class="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" placeholder="输入动画名，同步搜索 Bangumi 动画" />
-          <div v-if="searchResults.length" class="mt-3 grid gap-2 sm:grid-cols-2">
-            <button v-for="item in searchResults" :key="item.id" class="flex gap-3 rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-sm hover:border-indigo-200 hover:bg-indigo-50" @click="selected = item; submitGuess(item)">
-              <img v-if="item.image" :src="item.image" class="h-16 w-12 rounded object-cover" />
-              <span><b>{{ item.name_cn || item.name }}</b><small class="block text-slate-500">#{{ item.id }} · {{ item.date || '日期未知' }} · {{ item.score ? `${item.score}分` : '暂无评分' }}</small></span>
-            </button>
-          </div>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <input v-model="question" :disabled="!canPlay" class="min-w-[260px] flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" placeholder="例如：它是原创动画吗？有佐仓绫音参与吗？" @keyup.enter="ask" />
+          <button class="rounded-2xl bg-emerald-500 px-4 font-semibold text-white shadow-sm disabled:opacity-40" :disabled="!canPlay || loading" @click="ask">问</button>
+          <button class="rounded-2xl bg-amber-500 px-4 font-semibold text-white shadow-sm disabled:opacity-40" :disabled="!canHint || loading" @click="hint">提示 {{ canPlay ? `(${remainingHints})` : '' }}</button>
+          <button class="rounded-2xl bg-rose-500 px-4 font-semibold text-white shadow-sm disabled:opacity-40" :disabled="!canPlay || loading" @click="surrender">投降</button>
         </div>
+      </section>
 
-        <div class="glass rounded-3xl p-5">
-          <h2 class="font-semibold text-slate-950">记录</h2>
-          <div class="mt-3 space-y-2">
-            <p v-for="(item, index) in chat" :key="index" class="rounded-2xl border px-4 py-3 text-sm shadow-sm" :class="item.role === 'player' ? 'border-indigo-100 bg-indigo-50' : item.tone === 'ok' ? 'border-emerald-100 bg-emerald-50' : item.tone === 'bad' ? 'border-rose-100 bg-rose-50' : 'border-slate-200 bg-white'">
-              <span class="mr-2 text-xs uppercase text-slate-500">{{ item.role }}</span>{{ item.text }}
-            </p>
-          </div>
+      <section class="glass rounded-3xl p-5">
+        <h2 class="font-semibold text-slate-950">提交答案</h2>
+        <input v-model="guessText" :disabled="!canPlay" class="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" placeholder="输入动画名，同步搜索 Bangumi 动画" />
+        <div v-if="searchResults.length" class="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <button v-for="item in searchResults" :key="item.id" class="flex gap-3 rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-sm hover:border-indigo-200 hover:bg-indigo-50" @click="selected = item; submitGuess(item)">
+            <img v-if="item.image" :src="item.image" class="h-16 w-12 rounded object-cover" />
+            <span><b>{{ titleOf(item) }}</b><small class="block text-slate-500">#{{ item.id }} · {{ item.date || '日期未知' }} · {{ item.score ? `${item.score}分` : '暂无评分' }}</small></span>
+          </button>
+        </div>
+      </section>
+
+      <section class="glass rounded-3xl p-5">
+        <h2 class="font-semibold text-slate-950">记录</h2>
+        <div class="mt-3 space-y-2">
+          <article v-for="(item, index) in chat" :key="index" class="rounded-2xl border px-4 py-3 text-sm shadow-sm" :class="item.role === 'player' ? 'border-indigo-100 bg-indigo-50' : item.tone === 'ok' ? 'border-emerald-100 bg-emerald-50' : item.tone === 'bad' ? 'border-rose-100 bg-rose-50' : 'border-slate-200 bg-white'">
+            <div class="flex gap-3">
+              <img v-if="item.image" :src="item.image" class="h-20 w-14 rounded-lg object-cover shadow-sm" />
+              <p class="leading-6">
+                <span class="mr-2 text-xs uppercase text-slate-500">{{ item.role }}</span>
+                <template v-if="item.boldText">
+                  <span>{{ item.text }}</span><strong class="font-bold text-slate-950">{{ item.boldText }}</strong>
+                </template>
+                <template v-else>
+                  <span v-for="(part, partIndex) in highlightParts(item.text)" :key="partIndex" :class="part.highlight ? 'rounded-md bg-yellow-200 px-1 font-semibold text-yellow-950 ring-1 ring-yellow-300' : ''">{{ part.text }}</span>
+                </template>
+              </p>
+            </div>
+          </article>
         </div>
       </section>
     </div>
+
+    <div v-if="settingsOpen" class="fixed inset-0 z-40 bg-slate-950/30 backdrop-blur-sm" @click="settingsOpen = false"></div>
+    <aside class="fixed right-0 top-0 z-50 h-full w-full max-w-md transform overflow-y-auto bg-white p-6 shadow-2xl transition-transform duration-200" :class="settingsOpen ? 'translate-x-0' : 'translate-x-full'">
+      <div class="flex items-center justify-between">
+        <h2 class="text-xl font-bold text-slate-950"><i class="fa-solid fa-gear mr-2 text-indigo-600"></i>游戏设置</h2>
+        <button class="rounded-full p-2 text-slate-500 hover:bg-slate-100" @click="settingsOpen = false"><i class="fa-solid fa-xmark text-xl"></i></button>
+      </div>
+      <p class="mt-2 text-sm text-slate-500">调整筛选条件后，点击“开始新游戏”会按新条件重新抽取动画。</p>
+
+      <div class="mt-6 grid grid-cols-2 gap-3 text-sm text-slate-700">
+        <label>起始年份<input v-model.number="filters.yearFrom" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" type="number" /></label>
+        <label>结束年份<input v-model.number="filters.yearTo" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" type="number" /></label>
+        <label>评分下限<input v-model.number="filters.ratingMin" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" step="0.1" type="number" /></label>
+        <label>评分上限<input v-model.number="filters.ratingMax" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" step="0.1" type="number" /></label>
+        <label>类型
+          <select v-model="filters.format" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
+            <option value="all">不限</option><option value="tv">TV</option><option value="movie">剧场版</option><option value="ova">OVA</option><option value="web">WEB</option>
+          </select>
+        </label>
+        <label>国家/地区
+          <select v-model="filters.country" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
+            <option value="all">不限</option><option value="japan">日本</option><option value="western">欧美</option>
+          </select>
+        </label>
+        <label class="col-span-2">标签（逗号/空格分隔）<input v-model="filters.tags" placeholder="战斗, 校园" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" /></label>
+        <label class="col-span-2">模型提供商
+          <select v-model="provider" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
+            <option value="gpt">GPT / OpenAI-compatible</option><option value="gemini">Gemini</option>
+          </select>
+        </label>
+      </div>
+
+      <button :disabled="loading" class="mt-6 w-full rounded-2xl bg-indigo-600 px-4 py-3 font-semibold text-white shadow-lg shadow-indigo-200 hover:bg-indigo-500 disabled:opacity-50" @click="startGame">{{ loading ? '处理中…' : '按当前设置开始新游戏' }}</button>
+    </aside>
   </main>
 </template>

@@ -2,7 +2,7 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: false },
   modules: ['@nuxtjs/tailwindcss'],
-  css: ['~/assets/css/main.css'],
+  css: ['@fortawesome/fontawesome-free/css/all.min.css', '~/assets/css/main.css'],
   nitro: {
     preset: 'node-server'
   },
