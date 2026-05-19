@@ -160,7 +160,7 @@ function titleShape(subject: any, level = 0) {
   return `${parts.join('，')}。`
 }
 
-export function buildHintDeck(subject: any) {
+export function buildFallbackHintDeck(subject: any) {
   const year = String(subject?.air_date || subject?.date || '').slice(0, 4)
   const tags = getTagNames(subject).slice(0, 8)
   const metaTags = subject?.meta_tags || []
@@ -228,8 +228,110 @@ export function buildHintDeck(subject: any) {
   return unique.slice(0, HINT_LIMIT)
 }
 
+type AiProvider = 'gpt' | 'gemini'
+
+function configuredProvider(input?: string): AiProvider {
+  const p = String(input || process.env.AI_PROVIDER || 'gpt').toLowerCase()
+  return p.includes('gemini') ? 'gemini' : 'gpt'
+}
+
+async function callHintAiJson(prompt: string, provider?: string) {
+  const p = configuredProvider(provider)
+  if (p === 'gemini' && process.env.GEMINI_API_KEY) return callGeminiHintJson(prompt)
+  if (p === 'gpt' && process.env.OPENAI_API_KEY) return callOpenAiHintJson(prompt)
+  throw new Error('未配置提示生成模型 API Key')
+}
+
+async function callOpenAiHintJson(prompt: string) {
+  const base = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1'
+  const model = process.env.OPENAI_MODEL || 'gpt-4o-mini'
+  const res = await fetch(`${base.replace(/\/$/, '')}/chat/completions`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+    body: JSON.stringify({
+      model,
+      response_format: { type: 'json_object' },
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.5
+    })
+  })
+  if (!res.ok) throw new Error(`GPT API ${res.status}: ${await res.text()}`)
+  const data = await res.json()
+  return parseHintJson(data?.choices?.[0]?.message?.content)
+}
+
+async function callGeminiHintJson(prompt: string) {
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
+  const url = new URL(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`)
+  url.searchParams.set('key', process.env.GEMINI_API_KEY || '')
+  const res = await fetch(url.toString(), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.5, responseMimeType: 'application/json' }
+    })
+  })
+  if (!res.ok) throw new Error(`Gemini API ${res.status}: ${await res.text()}`)
+  const data = await res.json()
+  return parseHintJson(data?.candidates?.[0]?.content?.parts?.[0]?.text)
+}
+
+function parseHintJson(text: string) {
+  try {
+    const parsed = JSON.parse(text || '{}')
+    return { hints: Array.isArray(parsed.hints) ? parsed.hints : [] }
+  } catch {
+    return { hints: [] }
+  }
+}
+
+function normalizeHintArray(input: any, subject: any) {
+  if (!Array.isArray(input)) return []
+  const tokens = titleTokens(subject)
+  const result: string[] = []
+  for (const raw of input) {
+    let hint = String(raw || '').replace(/\s+/g, ' ').trim()
+    if (!hint) continue
+    const originalLower = hint.toLowerCase()
+    if (tokens.some((token) => token.length >= 2 && originalLower.includes(token))) continue
+    for (const name of [subject?.name, subject?.name_cn, ...(subject?.aliases || []).map((item: any) => item?.name || item)].filter(Boolean).map(String)) {
+      hint = hint.replaceAll(name, '这部动画')
+    }
+    const lower = hint.toLowerCase()
+    if (tokens.some((token) => token.length >= 2 && lower.includes(token))) continue
+    if (!result.includes(hint)) result.push(hint.slice(0, 120))
+    if (result.length >= HINT_LIMIT) break
+  }
+  return result
+}
+
+export async function buildHintDeck(subject: any, provider?: string) {
+  const prompt = `你在主持一个猜动画名游戏。请基于 Bangumi 资料，为答案动画生成 10 条从宽泛到核心、但不直接泄露答案的中文提示。
+严格规则：
+- 只能输出 JSON：{"hints":["提示1",...,"提示10"]}
+- 必须正好 10 条，每条 15-60 个中文字符左右。
+- 不要出现动画的标题、中文名、英文名、别名、系列标题，也不要出现与标题明显相关的标签词。
+- 如果 Bangumi 标签、简介、人名或条目名中包含标题关键词、系列名、角色名等明显指向答案的信息，必须跳过，不要写入提示。
+- 可以使用年份、地区、类型、评分区间、制作公司、监督、编剧、音乐、声优、主题歌、非标题类标签、简介氛围等信息。
+- 越靠后的提示越接近核心信息，但仍不能直接说出标题或标题形状。
+- 关键人名、公司、标签、年份等可用「」标记，便于页面高亮。
+- 不要编造资料中没有的信息。
+
+Bangumi资料：${JSON.stringify(compactSubjectForAi(subject)).slice(0, 12000)}`
+
+  try {
+    const parsed = await callHintAiJson(prompt, provider)
+    const hints = normalizeHintArray(parsed?.hints, subject)
+    if (hints.length === HINT_LIMIT) return hints
+  } catch {
+    // fall through to deterministic safe fallback
+  }
+  return buildFallbackHintDeck(subject)
+}
+
 export function pickHint(subject: any, usedHints = new Set<string>(), turn = 0) {
-  const deck = buildHintDeck(subject)
+  const deck = buildFallbackHintDeck(subject)
   const available = deck.filter((hint) => !usedHints.has(hint))
   return available[0] || deck[Math.min(turn, deck.length - 1)]
 }
@@ -239,12 +341,14 @@ export function compactSubjectForAi(subject: any) {
     id: subject.id,
     name: subject.name,
     name_cn: subject.name_cn,
+    aliases: subject.aliases || [],
     type: subject.type,
     date: subject.date || subject.air_date,
     summary: subject.summary,
     tags: (subject.tags || []).slice(0, 20).map((tag: any) => tag.name),
     meta_tags: subject.meta_tags || [],
     infobox: subject.infobox || [],
-    rating: subject.rating
+    rating: subject.rating,
+    rank: subject.rank
   }
 }

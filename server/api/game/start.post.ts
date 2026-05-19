@@ -1,7 +1,6 @@
 import { db, initDb, cleanupExpiredSubjects } from '../../utils/db'
 import { findRandomSubject, getRelatedSubjectIds, getSubject } from '../../utils/bangumi'
-import { generateHintDeck } from '../../utils/ai'
-import { HINT_LIMIT, INITIAL_SCORE } from '../../utils/game'
+import { buildHintDeck, HINT_LIMIT, INITIAL_SCORE } from '../../utils/game'
 
 const TTL_MS = Number(process.env.SUBJECT_CACHE_TTL_MS || 7 * 24 * 60 * 60 * 1000)
 
@@ -23,7 +22,7 @@ export default defineEventHandler(async (event) => {
   } else {
     subject = JSON.parse(cached[0].payload)
   }
-  const hintDeck = await generateHintDeck(subject, body?.provider)
+  const hintDeck = await buildHintDeck(subject, body?.provider)
   const initialHint = hintDeck[0]
   const sessionId = crypto.randomUUID()
   await db`INSERT INTO games (id, subject_id, filters, used_hints, hint_deck, asked, score, created_at, updated_at)

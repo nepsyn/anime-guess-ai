@@ -1,4 +1,4 @@
-import { buildHintDeck, compactSubjectForAi } from './game'
+import { compactSubjectForAi } from './game'
 
 type AiProvider = 'gpt' | 'gemini'
 
@@ -23,35 +23,6 @@ Bangumi资料：${JSON.stringify(compactSubjectForAi(subject)).slice(0, 12000)}
   if (p === 'gemini' && process.env.GEMINI_API_KEY) return callGeminiJson(prompt)
   if (p === 'gpt' && process.env.OPENAI_API_KEY) return callOpenAiJson(prompt)
   return { answer: '不确定', reason: '当前未配置对应模型 API Key，无法可靠判断这个问题。' }
-}
-
-export async function generateHintDeck(subject: any, provider?: string) {
-  const fallback = buildHintDeck(subject)
-  const p = configuredProvider(provider)
-  const prompt = `你在主持一个猜动画名游戏。请基于 Bangumi 资料，为答案动画生成 10 条从宽泛到核心、但不直接泄露答案的中文提示。
-严格规则：
-- 只能输出 JSON：{"hints":["提示1",...,"提示10"]}
-- 必须正好 10 条，每条 15-60 个中文字符左右。
-- 不要出现动画的标题、中文名、英文名、别名，也不要出现与标题明显相关的标签词。
-- 如果资料标签中包含动画名、标题关键词、系列名、角色名，必须跳过，不要写入提示。
-- 可以使用年份、地区、类型、评分区间、制作公司、监督、编剧、音乐、声优、主题歌、简介元素等信息。
-- 越靠后的提示越接近核心信息，但仍不能直接说出标题。
-- 关键人名、公司、标签、年份等可用「」标记，便于页面高亮。
-- 不要编造资料中没有的信息。
-
-Bangumi资料：${JSON.stringify(compactSubjectForAi(subject)).slice(0, 12000)}`
-
-  try {
-    const parsed = p === 'gemini' && process.env.GEMINI_API_KEY
-      ? await callGeminiJson(prompt)
-      : p === 'gpt' && process.env.OPENAI_API_KEY
-        ? await callOpenAiJson(prompt)
-        : null
-    const hints = normalizeHintArray(parsed?.hints, subject)
-    return hints.length === 10 ? hints : fallback
-  } catch {
-    return fallback
-  }
 }
 
 async function callOpenAiJson(prompt: string) {
@@ -93,41 +64,9 @@ async function callGeminiJson(prompt: string) {
 function parseAiJson(text: string) {
   try {
     const parsed = JSON.parse(text || '{}')
-    if (Array.isArray(parsed.hints)) return { hints: parsed.hints }
     const answer = ['是', '不是', '不确定'].includes(parsed.answer) ? parsed.answer : '不确定'
     return { answer, reason: String(parsed.reason || '').slice(0, 120) }
   } catch {
     return { answer: '不确定', reason: '模型返回格式无法解析。' }
   }
-}
-
-function titleTokens(subject: any) {
-  const names = [subject?.name, subject?.name_cn, ...(subject?.aliases || []).map((item: any) => item?.name || item)].filter(Boolean).map(String)
-  const tokens = new Set<string>()
-  for (const name of names) {
-    tokens.add(name.toLowerCase())
-    for (const part of name.split(/[\s:：!！?？~～\-_.·・、,，/（）()\[\]【】]+/)) {
-      const trimmed = part.trim().toLowerCase()
-      if (trimmed.length >= 2) tokens.add(trimmed)
-    }
-  }
-  return [...tokens].filter(Boolean)
-}
-
-function normalizeHintArray(input: any, subject: any) {
-  if (!Array.isArray(input)) return []
-  const tokens = titleTokens(subject)
-  const result: string[] = []
-  for (const raw of input) {
-    let hint = String(raw || '').replace(/\s+/g, ' ').trim()
-    if (!hint) continue
-    for (const name of [subject?.name, subject?.name_cn].filter(Boolean).map(String)) {
-      hint = hint.replaceAll(name, '这部动画')
-    }
-    const lower = hint.toLowerCase()
-    if (tokens.some((token) => token.length >= 2 && lower.includes(token))) continue
-    if (!result.includes(hint)) result.push(hint.slice(0, 120))
-    if (result.length >= 10) break
-  }
-  return result
 }
