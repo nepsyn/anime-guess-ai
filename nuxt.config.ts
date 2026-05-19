@@ -3,9 +3,6 @@ export default defineNuxtConfig({
   devtools: { enabled: false },
   modules: ['@nuxtjs/tailwindcss'],
   css: ['@fortawesome/fontawesome-free/css/all.min.css', '~/assets/css/main.css'],
-  nitro: {
-    preset: 'node-server'
-  },
   runtimeConfig: {
     aiProvider: process.env.AI_PROVIDER || 'gpt',
     public: {
