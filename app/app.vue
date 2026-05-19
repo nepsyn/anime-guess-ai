@@ -7,6 +7,7 @@ const filters = reactive({
   yearFrom: 2010,
   yearTo: new Date().getFullYear(),
   format: 'all',
+  country: 'all',
   tags: '',
   ratingMin: 6,
   ratingMax: 10
@@ -19,15 +20,18 @@ const guessText = ref('')
 const searchResults = ref<SearchResult[]>([])
 const selected = ref<SearchResult | null>(null)
 const revealedAnswer = ref<Answer | null>(null)
+const remainingHints = ref(0)
+const totalHints = ref(10)
 const chat = ref<ChatItem[]>([
   { role: 'system', text: '设置筛选条件后开始游戏。AI 会从 Bangumi 随机挑一部动画，你可以问是/不是/不确定问题。' }
 ])
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 
 const canPlay = computed(() => Boolean(sessionId.value))
+const canHint = computed(() => canPlay.value && remainingHints.value > 0)
 
 function push(item: ChatItem) {
-  chat.value.unshift(item)
+  chat.value.push(item)
 }
 
 function clearGuessSearch() {
@@ -48,9 +52,11 @@ function reveal(answer: Answer, prefix = '答案') {
 async function startGame() {
   loading.value = true
   try {
-    const res = await $fetch<{ sessionId: string; message: string; initialHint?: string }>('/api/game/start', { method: 'POST', body: { filters } })
+    const res = await $fetch<{ sessionId: string; message: string; initialHint?: string; remainingHints: number; totalHints: number }>('/api/game/start', { method: 'POST', body: { filters } })
     sessionId.value = res.sessionId
     revealedAnswer.value = null
+    remainingHints.value = res.remainingHints
+    totalHints.value = res.totalHints
     clearGuessSearch()
     chat.value = [
       { role: 'system', text: res.message, tone: 'ok' },
@@ -80,11 +86,17 @@ async function ask() {
 }
 
 async function hint() {
-  if (!canPlay.value) return
+  if (!canHint.value) return
   loading.value = true
   try {
-    const res = await $fetch<{ hint: string }>('/api/game/hint', { method: 'POST', body: { sessionId: sessionId.value } })
-    push({ role: 'ai', text: `提示：${res.hint}`, tone: 'info' })
+    const res = await $fetch<{ hint: string; remainingHints: number; totalHints: number; exhausted?: boolean; message?: string }>('/api/game/hint', { method: 'POST', body: { sessionId: sessionId.value } })
+    remainingHints.value = res.remainingHints
+    totalHints.value = res.totalHints
+    if (res.exhausted) {
+      push({ role: 'system', text: res.message || '提示次数已用完。', tone: 'info' })
+    } else {
+      push({ role: 'ai', text: `提示：${res.hint}`, tone: 'info' })
+    }
   } catch (err: any) {
     push({ role: 'system', text: err?.data?.message || err?.message || '获取提示失败', tone: 'bad' })
   } finally {
@@ -145,16 +157,21 @@ async function submitGuess(item = selected.value) {
       <section class="glass rounded-3xl p-6">
         <p class="text-sm font-medium text-indigo-600">Bangumi × AI</p>
         <h1 class="mt-2 text-3xl font-bold text-slate-950">AI 辅助猜动画名</h1>
-        <p class="mt-3 text-sm leading-6 text-slate-600">AI 根据你的筛选条件从 Bangumi 随机抽取动画。开局会给出初始提示，之后可以不限次数获取提示，线索会逐步更接近核心信息。</p>
+        <p class="mt-3 text-sm leading-6 text-slate-600">AI 根据你的筛选条件从 Bangumi 随机抽取动画。开局会给出初始提示；每局共 10 轮提示，线索会逐步更接近核心信息。</p>
 
         <div class="mt-6 grid grid-cols-2 gap-3 text-sm text-slate-700">
           <label>起始年份<input v-model.number="filters.yearFrom" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" type="number" /></label>
           <label>结束年份<input v-model.number="filters.yearTo" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" type="number" /></label>
           <label>评分下限<input v-model.number="filters.ratingMin" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" step="0.1" type="number" /></label>
           <label>评分上限<input v-model.number="filters.ratingMax" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" step="0.1" type="number" /></label>
-          <label class="col-span-2">类型
+          <label>类型
             <select v-model="filters.format" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
               <option value="all">不限</option><option value="tv">TV</option><option value="movie">剧场版</option><option value="ova">OVA</option><option value="web">WEB</option>
+            </select>
+          </label>
+          <label>国家/地区
+            <select v-model="filters.country" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
+              <option value="all">不限</option><option value="japan">日本</option><option value="western">欧美</option>
             </select>
           </label>
           <label class="col-span-2">标签（逗号/空格分隔）<input v-model="filters.tags" placeholder="战斗, 校园" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" /></label>
@@ -182,10 +199,11 @@ async function submitGuess(item = selected.value) {
 
         <div class="glass rounded-3xl p-5">
           <h2 class="font-semibold text-slate-950">提问</h2>
+          <p v-if="canPlay" class="mt-1 text-xs text-slate-500">剩余提示次数：{{ remainingHints }} / {{ totalHints }}</p>
           <div class="mt-3 flex flex-wrap gap-2">
             <input v-model="question" :disabled="!canPlay" class="min-w-[220px] flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" placeholder="例如：它是原创动画吗？有佐仓绫音参与吗？" @keyup.enter="ask" />
             <button class="rounded-2xl bg-emerald-500 px-4 font-semibold text-white shadow-sm disabled:opacity-40" :disabled="!canPlay || loading" @click="ask">问</button>
-            <button class="rounded-2xl bg-amber-500 px-4 font-semibold text-white shadow-sm disabled:opacity-40" :disabled="!canPlay || loading" @click="hint">提示</button>
+            <button class="rounded-2xl bg-amber-500 px-4 font-semibold text-white shadow-sm disabled:opacity-40" :disabled="!canHint || loading" @click="hint">提示 {{ canPlay ? `(${remainingHints})` : '' }}</button>
             <button class="rounded-2xl bg-rose-500 px-4 font-semibold text-white shadow-sm disabled:opacity-40" :disabled="!canPlay || loading" @click="surrender">投降</button>
           </div>
         </div>

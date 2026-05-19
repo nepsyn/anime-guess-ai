@@ -1,7 +1,10 @@
+export const HINT_LIMIT = 10
+
 export type PlayerFilters = {
   yearFrom?: number | null
   yearTo?: number | null
   format?: 'tv' | 'movie' | 'ova' | 'web' | 'all' | string
+  country?: 'japan' | 'western' | 'all' | string
   tags?: string | string[]
   ratingMin?: number | null
   ratingMax?: number | null
@@ -22,10 +25,24 @@ const FORMAT_META_TAGS: Record<string, string> = {
   web: 'WEB'
 }
 
+const COUNTRY_META_TAGS: Record<string, string> = {
+  japan: '日本',
+  jp: '日本',
+  日本: '日本',
+  western: '欧美',
+  west: '欧美',
+  欧美: '欧美'
+}
+
 export function normalizeFilters(filters: PlayerFilters = {}): BangumiFilter {
   const result: BangumiFilter = { type: [2] }
+  const metaTags: string[] = []
   const format = String(filters.format || 'all').toLowerCase()
-  if (FORMAT_META_TAGS[format]) result.meta_tags = [FORMAT_META_TAGS[format]]
+  if (FORMAT_META_TAGS[format]) metaTags.push(FORMAT_META_TAGS[format])
+  const countryRaw = String(filters.country || 'all')
+  const country = COUNTRY_META_TAGS[countryRaw.toLowerCase()] || COUNTRY_META_TAGS[countryRaw]
+  if (country) metaTags.push(country)
+  if (metaTags.length) result.meta_tags = [...new Set(metaTags)]
 
   const tags = Array.isArray(filters.tags)
     ? filters.tags
@@ -101,53 +118,93 @@ function getInfoboxList(subject: any, keys: string[]) {
   return []
 }
 
-function titleShape(subject: any) {
+function getTagNames(subject: any) {
+  return (subject?.tags || [])
+    .map((tag: any) => tag.name)
+    .filter((name: string) => name && !/^\d{4}(年|$)/.test(name) && !['TV', '剧场版', 'OVA', 'WEB', '日本', '欧美'].includes(name))
+}
+
+function titleShape(subject: any, level = 0) {
   const title = String(subject?.name_cn || subject?.name || '')
   if (!title) return ''
-  return `标题长度约 ${title.length} 个字符，首字符是「${title[0]}」。`
+  const parts = [`中文/常用标题长度约 ${title.length} 个字符`]
+  if (level >= 1) parts.push(`首字符是「${title[0]}」`)
+  if (level >= 2 && title.length > 1) parts.push(`末字符是「${title[title.length - 1]}」`)
+  return `${parts.join('，')}。`
+}
+
+export function buildHintDeck(subject: any) {
+  const year = String(subject?.air_date || subject?.date || '').slice(0, 4)
+  const tags = getTagNames(subject).slice(0, 8)
+  const metaTags = subject?.meta_tags || []
+  const format = metaTags.find((tag: string) => ['TV', '剧场版', 'OVA', 'WEB'].includes(tag)) || subject?.platform || ''
+  const country = metaTags.find((tag: string) => ['日本', '欧美'].includes(tag)) || ''
+  const studio = extractInfoboxValue(subject, ['动画制作', '制作'])
+  const director = extractInfoboxValue(subject, ['导演', '监督'])
+  const original = extractInfoboxValue(subject, ['原作', '原案'])
+  const series = extractInfoboxValue(subject, ['系列构成', '脚本'])
+  const music = extractInfoboxValue(subject, ['音乐'])
+  const theme = extractInfoboxValue(subject, ['主题歌演出', '片头歌演出', '片尾歌演出'])
+  const castList = getInfoboxList(subject, ['主演', '声优', '配音']).slice(0, 6)
+  const score = subject?.rating?.score ? Number(subject.rating.score).toFixed(1) : ''
+  const rank = subject?.rank ? `排名约 #${subject.rank}` : ''
+  const ratingTotal = subject?.rating?.total ? `评分人数约 ${subject.rating.total}` : ''
+  const summary = String(subject?.summary || '').replace(/\s+/g, ' ').trim()
+  const originalTitle = String(subject?.name || '')
+
+  const candidates = [
+    year || country || format || tags.length ? `基础线索：它是${year ? `${year}年` : '某一年'}开播的${country ? `${country}` : ''}${format ? `${format}` : ''}动画${tags[0] ? `，早期标签包括「${tags.slice(0, 2).join('、')}」` : ''}。` : '',
+    score || rank || ratingTotal ? `Bangumi 数据线索：当前评分约 ${score || '未知'} 分${rank ? `，${rank}` : ''}${ratingTotal ? `，${ratingTotal}` : ''}。` : '',
+    studio ? `制作线索：动画制作相关信息里出现了「${studio}」。` : '',
+    director || original ? `主创线索：${director ? `导演/监督信息里出现「${director}」` : ''}${director && original ? '，' : ''}${original ? `原作/原案信息里出现「${original}」` : ''}。` : '',
+    series || music ? `幕后线索：${series ? `系列构成/脚本信息里出现「${series}」` : ''}${series && music ? '，' : ''}${music ? `音乐信息里出现「${music}」` : ''}。` : '',
+    castList.length ? `声演线索：配音/主演相关信息里可以关注「${castList.slice(0, 2).join('、')}」。` : '',
+    tags.length ? `标签线索：更核心的 Bangumi 标签包括「${tags.slice(0, 5).join('、')}」。` : '',
+    theme ? `歌曲线索：主题歌相关信息里出现了「${theme}」。` : '',
+    summary ? `简介线索：${summary.slice(0, 120)}${summary.length > 120 ? '……' : ''}` : '',
+    titleShape(subject, 1),
+    originalTitle ? `标题线索：原名长度约 ${originalTitle.length} 个字符${originalTitle[0] ? `，首字符是「${originalTitle[0]}」` : ''}。` : '',
+    titleShape(subject, 2)
+  ]
+    .map((hint) => safeTitleFree(hint, subject))
+    .filter(Boolean)
+
+  const unique: string[] = []
+  for (const hint of candidates) {
+    if (!unique.includes(hint)) unique.push(hint)
+    if (unique.length >= HINT_LIMIT) break
+  }
+
+  const fallbackFacts = [
+    year ? `补充线索：开播年份可以锁定在 ${year} 年。` : '补充线索：Bangumi 对这部动画的年份资料不完整。',
+    country ? `补充线索：国家/地区标记是「${country}」。` : '补充线索：国家/地区标记不明显。',
+    format ? `补充线索：条目标记里包含「${format}」。` : '补充线索：条目类型标记不明显。',
+    tags[0] ? `补充线索：最靠前的标签之一是「${tags[0]}」。` : '补充线索：标签资料较少。',
+    score ? `补充线索：评分大约在 ${score} 分附近。` : '补充线索：评分资料较少。',
+    castList[0] ? `补充线索：声演名单里可以优先关注「${castList[0]}」。` : '补充线索：声演资料较少。',
+    studio ? `补充线索：制作公司/制作信息仍可关注「${studio}」。` : '补充线索：制作公司资料较少。',
+    titleShape(subject, 0),
+    titleShape(subject, 1),
+    titleShape(subject, 2)
+  ]
+    .map((hint) => safeTitleFree(hint, subject))
+    .filter(Boolean)
+
+  let i = 0
+  while (unique.length < HINT_LIMIT) {
+    const hint = fallbackFacts[i % fallbackFacts.length] || `补充线索：这是第 ${unique.length + 1} 条可用提示。`
+    const normalized = unique.includes(hint) ? `${hint.replace(/。$/, '')}（提示 ${unique.length + 1}）。` : hint
+    unique.push(normalized)
+    i += 1
+  }
+
+  return unique.slice(0, HINT_LIMIT)
 }
 
 export function pickHint(subject: any, usedHints = new Set<string>(), turn = 0) {
-  const year = String(subject?.air_date || subject?.date || '').slice(0, 4)
-  const tags = (subject?.tags || [])
-    .map((tag: any) => tag.name)
-    .filter((name: string) => name && !/^\d{4}(年|$)/.test(name) && !['TV', '剧场版', 'OVA', 'WEB'].includes(name))
-    .slice(0, 5)
-  const broadTags = tags.slice(0, 2).join('、')
-  const coreTags = tags.slice(0, 4).join('、')
-  const meta = (subject?.meta_tags || []).find((tag: string) => ['TV', '剧场版', 'OVA', 'WEB'].includes(tag)) || subject?.platform || ''
-  const studio = extractInfoboxValue(subject, ['动画制作', '制作'])
-  const director = extractInfoboxValue(subject, ['导演', '监督'])
-  const cast = getInfoboxList(subject, ['主演', '声优', '配音']).slice(0, Math.min(4, 1 + Math.floor(turn / 2))).join('、')
-  const score = subject?.rating?.score ? Number(subject.rating.score).toFixed(1) : ''
-  const summary = String(subject?.summary || '').replace(/\s+/g, ' ').trim()
-  const summaryLength = Math.min(180, 60 + turn * 18)
-
-  const staged = [
-    year || broadTags ? `它是一部${year ? `${year}年` : ''}${broadTags ? `带有「${broadTags}」标签` : ''}的动画。` : '',
-    meta || score ? `Bangumi 上它的条目类型/标记${meta ? `包含「${meta}」` : '未知'}${score ? `，当前评分约为 ${score} 分` : ''}。` : '',
-    studio ? `它的动画制作相关信息里出现了：${studio}。` : '',
-    director ? `它的导演/监督相关信息里出现了：${director}。` : '',
-    cast ? `它的配音/主演相关信息里出现了：${cast}。` : '',
-    coreTags ? `更接近核心的标签线索：${coreTags}。` : '',
-    summary ? `简介线索：${summary.slice(0, summaryLength)}${summary.length > summaryLength ? '……' : ''}` : '',
-    titleShape(subject)
-  ]
-    .map((hint) => safeTitleFree(hint, subject))
-    .filter(Boolean)
-
-  const available = staged.filter((hint) => !usedHints.has(hint))
-  if (available.length) return available[0]
-
-  const fallback = [
-    coreTags ? `追加线索：它的高频标签仍然包括「${coreTags}」。` : '',
-    cast ? `追加线索：参与配音/主演的信息中可以关注「${cast}」。` : '',
-    summary ? `追加简介线索：${summary.slice(0, Math.min(summary.length, summaryLength + 40))}${summary.length > summaryLength + 40 ? '……' : ''}` : '',
-    titleShape(subject)
-  ]
-    .map((hint) => safeTitleFree(hint, subject))
-    .filter(Boolean)
-  return fallback[turn % Math.max(fallback.length, 1)] || '追加线索：这部动画的资料较少，可以尝试缩小年份、类型、制作人员或声优范围。'
+  const deck = buildHintDeck(subject)
+  const available = deck.filter((hint) => !usedHints.has(hint))
+  return available[0] || deck[Math.min(turn, deck.length - 1)]
 }
 
 export function compactSubjectForAi(subject: any) {

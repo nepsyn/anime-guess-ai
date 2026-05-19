@@ -1,5 +1,5 @@
 import { db, initDb } from '../../utils/db'
-import { pickHint } from '../../utils/game'
+import { HINT_LIMIT, pickHint } from '../../utils/game'
 
 export default defineEventHandler(async (event) => {
   await initDb()
@@ -10,8 +10,11 @@ export default defineEventHandler(async (event) => {
   if (!rows.length) throw createError({ statusCode: 404, statusMessage: '游戏不存在或已过期' })
   const subject = JSON.parse(rows[0].payload)
   const used = JSON.parse(rows[0].used_hints || '[]')
+  if (used.length >= HINT_LIMIT) {
+    return { hint: '', remainingHints: 0, totalHints: HINT_LIMIT, exhausted: true, message: '提示次数已用完。' }
+  }
   const hint = pickHint(subject, new Set(used), used.length)
   used.push(hint)
   await db`UPDATE games SET used_hints = ${JSON.stringify(used)}, updated_at = ${Date.now()} WHERE id = ${sessionId}`
-  return { hint }
+  return { hint, remainingHints: Math.max(0, HINT_LIMIT - used.length), totalHints: HINT_LIMIT, exhausted: used.length >= HINT_LIMIT }
 })

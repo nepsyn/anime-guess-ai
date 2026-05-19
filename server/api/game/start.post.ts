@@ -1,6 +1,6 @@
 import { db, initDb, cleanupExpiredSubjects } from '../../utils/db'
 import { findRandomSubject, getRelatedSubjectIds, getSubject } from '../../utils/bangumi'
-import { pickHint } from '../../utils/game'
+import { HINT_LIMIT, pickHint } from '../../utils/game'
 
 const TTL_MS = Number(process.env.SUBJECT_CACHE_TTL_MS || 7 * 24 * 60 * 60 * 1000)
 
@@ -26,5 +26,5 @@ export default defineEventHandler(async (event) => {
   const sessionId = crypto.randomUUID()
   await db`INSERT INTO games (id, subject_id, filters, used_hints, asked, created_at, updated_at)
     VALUES (${sessionId}, ${subjectId}, ${JSON.stringify(filters)}, ${JSON.stringify([initialHint])}, '[]', ${Date.now()}, ${Date.now()})`
-  return { sessionId, message: '新游戏已开始。你可以继续提问、要提示，或直接搜索并提交答案。', initialHint }
+  return { sessionId, message: '新游戏已开始。你可以继续提问、要提示，或直接搜索并提交答案。', initialHint, remainingHints: HINT_LIMIT - 1, totalHints: HINT_LIMIT }
 })
