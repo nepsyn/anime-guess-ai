@@ -1,5 +1,5 @@
 import { db, initDb } from '../../utils/db'
-import { isCorrectGuess } from '../../utils/game'
+import { isCorrectGuess, publicAnswer } from '../../utils/game'
 
 export default defineEventHandler(async (event) => {
   await initDb()
@@ -13,12 +13,7 @@ export default defineEventHandler(async (event) => {
   const subject = JSON.parse(rows[0].payload)
   return {
     correct,
-    answer: correct ? {
-      id: subject.id,
-      name: subject.name,
-      name_cn: subject.name_cn,
-      url: `https://bgm.tv/subject/${subject.id}`
-    } : undefined,
-    message: correct ? '答对了！' : '还不是这个条目，可以继续提问。'
+    answer: correct ? publicAnswer(subject) : undefined,
+    message: correct ? '答对了！' : '还不是这部动画，可以继续提问。'
   }
 })

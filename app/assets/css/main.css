@@ -3,9 +3,9 @@
 @tailwind utilities;
 
 body {
-  @apply bg-slate-950 text-slate-100 antialiased;
+  @apply bg-slate-50 text-slate-900 antialiased;
 }
 
 .glass {
-  @apply border border-white/10 bg-white/10 shadow-2xl shadow-black/20 backdrop-blur;
+  @apply border border-white/70 bg-white/80 shadow-xl shadow-slate-200/70 backdrop-blur;
 }
