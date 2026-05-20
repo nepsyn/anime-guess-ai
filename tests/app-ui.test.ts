@@ -7,7 +7,7 @@ const appVue = () => readFileSync(join(import.meta.dir, '..', 'app', 'app.vue'),
 describe('app layout controls', () => {
   test('places the settings button next to the start-new-game button', () => {
     const source = appVue();
-    const heroControls = source.match(/<div class="mt-5[\s\S]*?<\/div>/)?.[0] || '';
+    const heroControls = source.match(/<div class="mt-3 flex flex-wrap items-center gap-2[\s\S]*?<\/div>/)?.[0] || '';
 
     expect(heroControls).toContain('@click="startGame"');
     expect(heroControls).toContain('@click="settingsOpen = true"');
@@ -34,5 +34,17 @@ describe('app layout controls', () => {
     expect(source).toContain("reveal(res.answer, '放弃成功，正确答案')");
     expect(source).toContain('image: answer.image');
     expect(source).not.toContain('投降');
+  });
+
+  test('uses compact mobile layout, new title, domestic filter, and disables play controls after reveal', () => {
+    const source = appVue();
+
+    expect(source).toContain('婆罗门猜猜乐');
+    expect(source).not.toContain('AI 辅助猜动画名');
+    expect(source).toContain('const gameEnded = computed(() => Boolean(revealedAnswer.value));');
+    expect(source).toContain('const canPlay = computed(() => Boolean(sessionId.value) && !gameEnded.value);');
+    expect(source).toContain('<option value="china">国产</option>');
+    expect(source).toContain('max-w-4xl space-y-3');
+    expect(source).toContain('px-3 py-4 sm:px-4');
   });
 });

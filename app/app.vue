@@ -91,7 +91,8 @@ function saveSettings() {
 onMounted(loadSettings);
 watch(settingsSnapshot, saveSettings, { deep: true });
 
-const canPlay = computed(() => Boolean(sessionId.value));
+const gameEnded = computed(() => Boolean(revealedAnswer.value));
+const canPlay = computed(() => Boolean(sessionId.value) && !gameEnded.value);
 const canHint = computed(() => canPlay.value && remainingHints.value > 0);
 
 function push(item: ChatItem) {
@@ -287,49 +288,49 @@ async function submitGuess(item = selected.value) {
 
 <template>
   <main
-    class="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(129,140,248,.28),_transparent_34%),radial-gradient(circle_at_bottom_right,_rgba(251,191,36,.24),_transparent_32%)] bg-slate-50 px-4 py-8 text-slate-900"
+    class="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(129,140,248,.28),_transparent_34%),radial-gradient(circle_at_bottom_right,_rgba(251,191,36,.24),_transparent_32%)] bg-slate-50 px-3 py-4 text-slate-900 sm:px-4"
   >
-    <div class="mx-auto max-w-5xl space-y-5">
-      <section class="glass rounded-3xl p-6">
+    <div class="mx-auto max-w-4xl space-y-3">
+      <section class="glass rounded-3xl px-3 py-4 sm:px-4">
         <div>
-          <p class="text-sm font-medium text-indigo-600">Bangumi × AI</p>
-          <h1 class="mt-2 text-3xl font-bold text-slate-950">AI 辅助猜动画名</h1>
-          <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
+          <p class="text-xs font-medium text-indigo-600">Bangumi × AI</p>
+          <h1 class="mt-1 text-2xl font-bold text-slate-950 sm:text-3xl">婆罗门猜猜乐</h1>
+          <p class="mt-2 max-w-3xl text-xs leading-5 text-slate-600 sm:text-sm">
             AI 根据你的筛选条件从 Bangumi 随机抽取动画。开局会给出初始提示；每局共 10 轮提示，线索会逐步更接近核心信息。
           </p>
         </div>
-        <div class="mt-5 flex flex-wrap items-center gap-3">
+        <div class="mt-3 flex flex-wrap items-center gap-2">
           <button
             :disabled="loading"
-            class="rounded-2xl bg-indigo-600 px-6 py-3 font-semibold text-white shadow-lg shadow-indigo-200 hover:bg-indigo-500 disabled:opacity-50"
+            class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-200 hover:bg-indigo-500 disabled:opacity-50 sm:px-5 sm:py-2.5"
             @click="startGame"
           >
             {{ loading ? '处理中…' : '开始新游戏' }}
           </button>
           <button
-            class="rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-700 shadow-sm hover:border-indigo-200 hover:bg-indigo-50"
+            class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:border-indigo-200 hover:bg-indigo-50"
             title="设置筛选条件"
             @click="settingsOpen = true"
           >
             <i class="fa-solid fa-gear mr-2"></i>设置
           </button>
           <p
-            v-if="canPlay"
-            class="rounded-2xl border border-indigo-100 bg-white px-4 py-3 text-sm font-semibold text-indigo-700 shadow-sm"
+            v-if="sessionId"
+            class="rounded-xl border border-indigo-100 bg-white px-3 py-2 text-xs font-semibold text-indigo-700 shadow-sm"
           >
             当前得分：<span class="text-xl text-indigo-600">{{ score }}</span> / 20
           </p>
         </div>
       </section>
 
-      <section class="glass rounded-3xl p-5">
+      <section class="glass rounded-2xl p-3 sm:p-4">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <h2 class="font-semibold text-slate-950">提问</h2>
           <div class="flex flex-wrap items-center gap-2">
-            <p v-if="canPlay" class="rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">
+            <p v-if="sessionId" class="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700">
               当前得分：{{ score }} / 20
             </p>
-            <p v-if="canPlay" class="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
+            <p v-if="canPlay" class="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
               剩余提示次数：{{ remainingHints }} / {{ totalHints }}
             </p>
           </div>
@@ -338,7 +339,7 @@ async function submitGuess(item = selected.value) {
           <input
             v-model="question"
             :disabled="!canPlay"
-            class="min-w-[220px] flex-[1_1_100%] rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 sm:flex-1"
+            class="min-w-[180px] flex-[1_1_100%] rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 sm:flex-1"
             placeholder="例如：它是原创动画吗？有佐仓绫音参与吗？"
             @keyup.enter="ask"
           />
@@ -366,12 +367,12 @@ async function submitGuess(item = selected.value) {
         </div>
       </section>
 
-      <section class="glass rounded-3xl p-5">
+      <section class="glass rounded-2xl p-3 sm:p-4">
         <h2 class="font-semibold text-slate-950">提交答案</h2>
         <input
           v-model="guessText"
           :disabled="!canPlay"
-          class="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+          class="mt-3 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
           placeholder="输入动画名，同步搜索 Bangumi 动画"
         />
         <div v-if="searchResults.length" class="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -396,7 +397,7 @@ async function submitGuess(item = selected.value) {
         </div>
       </section>
 
-      <section class="glass rounded-3xl p-5">
+      <section class="glass rounded-2xl p-3 sm:p-4">
         <h2 class="font-semibold text-slate-950">记录</h2>
         <div class="mt-3 space-y-2">
           <article
@@ -564,6 +565,7 @@ async function submitGuess(item = selected.value) {
             <option value="all">不限</option>
             <option value="japan">日本</option>
             <option value="western">欧美</option>
+            <option value="china">国产</option>
           </select>
         </label>
         <label class="col-span-2"

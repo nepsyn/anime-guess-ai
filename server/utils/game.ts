@@ -15,7 +15,7 @@ export type PlayerFilters = {
   yearFrom?: number | null;
   yearTo?: number | null;
   format?: 'tv' | 'movie' | 'ova' | 'web' | 'all' | string;
-  country?: 'japan' | 'western' | 'all' | string;
+  country?: 'japan' | 'western' | 'china' | 'all' | string;
   tags?: string | string[];
   ratingMin?: number | null;
   ratingMax?: number | null;
@@ -43,6 +43,10 @@ const COUNTRY_META_TAGS: Record<string, string> = {
   western: '欧美',
   west: '欧美',
   欧美: '欧美',
+  china: '国产',
+  cn: '国产',
+  chinese: '国产',
+  国产: '国产',
 };
 
 export function normalizeFilters(filters: PlayerFilters = {}): BangumiFilter {
@@ -254,7 +258,7 @@ export async function buildHintDeck(subject: any, config?: string | AiConfig) {
 - 只能输出 JSON：{"hints":["提示1",...,"提示10"]}
 - 必须正好 10 条，每条 15-80 个中文字符左右，顺序和内容必须严格对应下面 10 类。
 - 不要出现动画完整标题、中文名、英文名、别名或系列完整标题。
-- 第 9 条允许透露主角名字；如果 Bangumi 与参与人员资料里没有明确主角，请写“主角资料不明确”。
+- 第 9 条允许透露主角名字；如果 Bangumi 与角色资料里没有明确主角，请写“主角资料不明确”。
 - 第 10 条允许透露动画名称中带的一个字或一个短词，但不能给出完整标题。
 - 关键人名、公司、标签、年份、月份等可用「」标记，便于页面高亮。
 - 不要编造 Bangumi 资料中没有的信息；资料缺失时应明确写资料不明确。
@@ -295,13 +299,14 @@ export function compactSubjectForAi(subject: any) {
     tags: (subject.tags || []).slice(0, 20).map((tag: any) => tag.name),
     meta_tags: subject.meta_tags || [],
     infobox: subject.infobox || [],
-    persons: (subject.persons || []).slice(0, 40).map((person: any) => ({
-      id: person?.id,
-      name: person?.name,
-      relation: person?.relation || person?.type || person?.career,
-      characters: (person?.characters || [])
+    characters: (subject.characters || []).slice(0, 40).map((character: any) => ({
+      id: character?.id,
+      name: character?.name,
+      name_cn: character?.name_cn,
+      relation: character?.relation,
+      actors: (character?.actors || [])
         .slice?.(0, 5)
-        ?.map((character: any) => character?.name || character?.name_cn || character?.relation || character)
+        ?.map((actor: any) => actor?.name || actor?.name_cn || actor)
         ?.filter(Boolean),
     })),
     rating: subject.rating,

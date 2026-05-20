@@ -28,6 +28,11 @@ describe('normalizeFilters', () => {
     expect(result.air_date).toEqual(['>=2014-01-01', '<=2016-12-31']);
     expect(result.rating).toEqual(['>=7', '<=8.5']);
   });
+
+  test('adds domestic country meta tag for Chinese anime', () => {
+    expect(normalizeFilters({ country: 'china' }).meta_tags).toEqual(['国产']);
+    expect(normalizeFilters({ country: '国产' }).meta_tags).toEqual(['国产']);
+  });
 });
 
 describe('isCorrectGuess', () => {
@@ -98,7 +103,7 @@ describe('pickHint fallback', () => {
 });
 
 describe('buildHintDeck', () => {
-  test('asks AI for the fixed ten hint categories in order and includes persons context', async () => {
+  test('asks AI for the fixed ten hint categories in order and includes characters context', async () => {
     const oldFetch = globalThis.fetch;
     const oldProvider = process.env.AI_PROVIDER;
     const oldKey = process.env.OPENAI_API_KEY;
@@ -137,21 +142,22 @@ describe('buildHintDeck', () => {
       );
     };
 
-    const subjectWithPersons = {
+    const subjectWithCharacters = {
       ...sampleSubject,
-      persons: [
-        { id: 10, name: '测试主角', relation: '主角' },
-        { id: 20, name: '佐仓绫音', relation: '声优', characters: ['关键角色'] },
+      characters: [
+        { id: 10, name: '测试主角', relation: '主角', actors: [{ name: '佐仓绫音' }] },
       ],
     };
 
     try {
-      const deck = await buildHintDeck(subjectWithPersons, { provider: 'gpt', apiKey: 'user-key' });
+      const deck = await buildHintDeck(subjectWithCharacters, { provider: 'gpt', apiKey: 'user-key' });
       expect(authorization).toBe('Bearer user-key');
       expect(prompt).toContain('1. 播出年份、月份');
       expect(prompt).toContain('2. 动画类型（漫画改、原创、游戏改等）');
       expect(prompt).toContain('9. 主角名字');
       expect(prompt).toContain('10. 动画名称中带的一个字或词');
+      expect(prompt).toContain('characters');
+      expect(prompt).not.toContain('persons');
       expect(prompt).toContain('测试主角');
       expect(prompt).toContain('佐仓绫音');
       expect(deck).toHaveLength(HINT_LIMIT);
