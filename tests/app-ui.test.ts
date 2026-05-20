@@ -21,8 +21,18 @@ describe('app layout controls', () => {
 
     expect(source).toContain('<div class="mt-3 flex flex-wrap gap-2">');
     expect(source).not.toContain('<div class="mt-3 grid gap-2 sm:flex sm:flex-wrap">');
-    expect(source).toContain('@click="ask">提问</button>');
+    expect(source).toMatch(/@click="ask"[\s\S]*?>\s*提问\s*<\/button>/);
     expect(source).toContain('px-4 py-2');
     expect(source).not.toContain('min-h-12 rounded-2xl bg-emerald-500 px-5 py-3');
+  });
+
+  test('uses abandon wording and records the revealed cover image', () => {
+    const source = appVue();
+
+    expect(source).toContain('放弃');
+    expect(source).toContain('确定要放弃并直接揭晓正确答案吗？');
+    expect(source).toContain("reveal(res.answer, '放弃成功，正确答案')");
+    expect(source).toContain('image: answer.image');
+    expect(source).not.toContain('投降');
   });
 });

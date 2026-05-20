@@ -58,6 +58,20 @@ export async function getSubject(id: number) {
   return bgmFetch(`/v0/subjects/${id}`);
 }
 
+export async function getSubjectPersons(id: number) {
+  try {
+    const persons = await bgmFetch(`/v0/subjects/${id}/persons`);
+    return Array.isArray(persons) ? persons : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function getSubjectWithPersons(id: number) {
+  const [subject, persons] = await Promise.all([getSubject(id), getSubjectPersons(id)]);
+  return { ...subject, persons };
+}
+
 export async function getRelatedSubjectIds(id: number) {
   try {
     const rels = await bgmFetch(`/v0/subjects/${id}/subjects`);

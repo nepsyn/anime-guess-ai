@@ -98,7 +98,7 @@ describe('pickHint fallback', () => {
 });
 
 describe('buildHintDeck', () => {
-  test('asks AI for the fixed ten hint categories in order', async () => {
+  test('asks AI for the fixed ten hint categories in order and includes persons context', async () => {
     const oldFetch = globalThis.fetch;
     const oldProvider = process.env.AI_PROVIDER;
     const oldKey = process.env.OPENAI_API_KEY;
@@ -125,8 +125,8 @@ describe('buildHintDeck', () => {
                     '6. 动画导演是「测试监督」。',
                     '7. 关键角色声优有「佐仓绫音」。',
                     '8. 故事简介提到一段奇幻冒险。',
-                    '9. 动画名称里带有「测」这个字。',
-                    '10. 主角名字可关注「测试主角」。',
+                    '9. 主角名字可关注「测试主角」。',
+                    '10. 动画名称里带有「测」这个字。',
                   ],
                 }),
               },
@@ -137,15 +137,26 @@ describe('buildHintDeck', () => {
       );
     };
 
+    const subjectWithPersons = {
+      ...sampleSubject,
+      persons: [
+        { id: 10, name: '测试主角', relation: '主角' },
+        { id: 20, name: '佐仓绫音', relation: '声优', characters: ['关键角色'] },
+      ],
+    };
+
     try {
-      const deck = await buildHintDeck(sampleSubject, { provider: 'gpt', apiKey: 'user-key' });
+      const deck = await buildHintDeck(subjectWithPersons, { provider: 'gpt', apiKey: 'user-key' });
       expect(authorization).toBe('Bearer user-key');
       expect(prompt).toContain('1. 播出年份、月份');
-      expect(prompt).toContain('2. 类型（漫画改、原创、游戏改等）');
-      expect(prompt).toContain('9. 动画名称中带的一个字或词');
-      expect(prompt).toContain('10. 主角名字');
+      expect(prompt).toContain('2. 动画类型（漫画改、原创、游戏改等）');
+      expect(prompt).toContain('9. 主角名字');
+      expect(prompt).toContain('10. 动画名称中带的一个字或词');
+      expect(prompt).toContain('测试主角');
+      expect(prompt).toContain('佐仓绫音');
       expect(deck).toHaveLength(HINT_LIMIT);
-      expect(deck[8]).toContain('「测」');
+      expect(deck[8]).toContain('测试主角');
+      expect(deck[9]).toContain('「测」');
       expect(new Set(deck).size).toBe(HINT_LIMIT);
       expect(deck.join('\n')).not.toContain('测试动画');
       expect(deck.join('\n')).not.toContain('测试别名');
@@ -228,6 +239,28 @@ describe('answerQuestion', () => {
       else process.env.AI_PROVIDER = oldProvider;
       if (oldOpenAiKey === undefined) delete process.env.OPENAI_API_KEY;
       else process.env.OPENAI_API_KEY = oldOpenAiKey;
+    }
+  });
+
+  test('allows reliable internet knowledge for gaps without inventing facts', async () => {
+    const oldFetch = globalThis.fetch;
+    let prompt = '';
+    globalThis.fetch = async (_url, init) => {
+      const body = JSON.parse(String(init?.body || '{}'));
+      prompt = String(body.messages?.[0]?.content || '');
+      return new Response(
+        JSON.stringify({ choices: [{ message: { content: JSON.stringify({ answer: '不确定' }) } }] }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
+    };
+
+    try {
+      await answerQuestion(sampleSubject, '它的海外流媒体平台是 Netflix 吗？', { provider: 'gpt', apiKey: 'user-key' });
+      expect(prompt).toContain('Bangumi 资料不足时，可以结合你已知的可靠公开互联网资料回答');
+      expect(prompt).toContain('不能编造');
+      expect(prompt).toContain('没有可靠依据');
+    } finally {
+      globalThis.fetch = oldFetch;
     }
   });
 });

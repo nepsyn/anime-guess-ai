@@ -9,8 +9,8 @@ export async function answerQuestion(subject: any, question: string, config?: st
 - 只能输出 JSON：{"answer":"是|不是|不确定"}
 - 不要补充说明，不要输出 reason 或其他字段。
 - 不要泄露动画名、中文名、英文名、角色名中明显等同标题的信息。
-- 如果资料不足以判断，answer 必须是“不确定”。
-- 不要编造 Bangumi 资料中没有的信息。
+- 优先根据给定 Bangumi 资料回答；Bangumi 资料不足时，可以结合你已知的可靠公开互联网资料回答。
+- 不能编造；如果给定资料和可靠公开资料都没有可靠依据，answer 必须是“不确定”。
 
 Bangumi资料：${JSON.stringify(compactSubjectForAi(subject)).slice(0, 12000)}
 玩家问题：${question}`;

@@ -133,6 +133,19 @@ export function hintResponseFromUsedCount(hint: string, usedCount: number, score
   };
 }
 
+export function pickHint(subject: any, used = new Set<string>(), index = 0) {
+  const compact = compactSubjectForAi(subject);
+  const candidates = [
+    compact.date ? `播出时间约为「${String(compact.date).slice(0, 7)}」。` : '',
+    compact.meta_tags?.length ? `类型标签包含「${compact.meta_tags.join('、')}」。` : '',
+    compact.rating?.score ? `Bangumi 评分约「${compact.rating.score}」。` : '',
+    compact.tags?.length ? `关键标签包括「${compact.tags.slice(0, 3).join('、')}」。` : '',
+    compact.summary ? `故事简介：${String(compact.summary).slice(0, 60)}` : '',
+  ].filter(Boolean);
+  const safe = candidates.filter((hint) => !used.has(hint));
+  return safe[index % Math.max(1, safe.length)] || '这部动画的公开资料较少。';
+}
+
 export function configuredProvider(input?: string): AiProvider {
   const p = String(input || 'gpt').toLowerCase();
   return p.includes('gemini') ? 'gemini' : 'gpt';
@@ -241,8 +254,8 @@ export async function buildHintDeck(subject: any, config?: string | AiConfig) {
 - 只能输出 JSON：{"hints":["提示1",...,"提示10"]}
 - 必须正好 10 条，每条 15-80 个中文字符左右，顺序和内容必须严格对应下面 10 类。
 - 不要出现动画完整标题、中文名、英文名、别名或系列完整标题。
-- 第 9 条允许透露动画名称中带的一个字或一个短词，但不能给出完整标题。
-- 第 10 条允许透露主角名字；如果 Bangumi 资料里没有明确主角，请写“主角资料不明确”。
+- 第 9 条允许透露主角名字；如果 Bangumi 与参与人员资料里没有明确主角，请写“主角资料不明确”。
+- 第 10 条允许透露动画名称中带的一个字或一个短词，但不能给出完整标题。
 - 关键人名、公司、标签、年份、月份等可用「」标记，便于页面高亮。
 - 不要编造 Bangumi 资料中没有的信息；资料缺失时应明确写资料不明确。
 
@@ -255,8 +268,8 @@ export async function buildHintDeck(subject: any, config?: string | AiConfig) {
 6. 动画导演
 7. 参与配音的一个声优
 8. 故事简介
-9. 动画名称中带的一个字或词
-10. 主角名字
+9. 主角名字
+10. 动画名称中带的一个字或词
 
 Bangumi资料：${JSON.stringify(compactSubjectForAi(subject)).slice(0, 12000)}`;
 
@@ -282,6 +295,15 @@ export function compactSubjectForAi(subject: any) {
     tags: (subject.tags || []).slice(0, 20).map((tag: any) => tag.name),
     meta_tags: subject.meta_tags || [],
     infobox: subject.infobox || [],
+    persons: (subject.persons || []).slice(0, 40).map((person: any) => ({
+      id: person?.id,
+      name: person?.name,
+      relation: person?.relation || person?.type || person?.career,
+      characters: (person?.characters || [])
+        .slice?.(0, 5)
+        ?.map((character: any) => character?.name || character?.name_cn || character?.relation || character)
+        ?.filter(Boolean),
+    })),
     rating: subject.rating,
     rank: subject.rank,
   };

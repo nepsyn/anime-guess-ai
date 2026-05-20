@@ -16,6 +16,6 @@ export default defineEventHandler(async (event) => {
   return {
     answer: publicAnswer(subject),
     score: 0,
-    message: '答案揭晓。',
+    message: '已放弃，答案揭晓。',
   };
 });

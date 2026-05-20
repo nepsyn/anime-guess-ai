@@ -128,7 +128,7 @@ function highlightParts(text: string) {
 
 function reveal(answer: Answer, prefix = '答案') {
   revealedAnswer.value = answer;
-  push({ role: 'system', text: `${prefix}：${answerTitle(answer)}（Bangumi #${answer.id}）`, tone: 'ok' });
+  push({ role: 'system', text: `${prefix}：${answerTitle(answer)}（Bangumi #${answer.id}）`, tone: 'ok', image: answer.image });
 }
 
 function showCorrectDialog(answer: Answer, message: string) {
@@ -225,7 +225,7 @@ async function hint() {
 
 async function surrender() {
   if (!canPlay.value || loading.value) return;
-  const ok = window.confirm('确定要投降并直接揭晓最终答案吗？');
+  const ok = window.confirm('确定要放弃并直接揭晓正确答案吗？');
   if (!ok) return;
   loading.value = true;
   try {
@@ -234,9 +234,9 @@ async function surrender() {
       body: { sessionId: sessionId.value },
     });
     score.value = res.score;
-    reveal(res.answer, '投降成功，最终答案');
+    reveal(res.answer, '放弃成功，正确答案');
   } catch (err: any) {
-    push({ role: 'system', text: err?.data?.message || err?.message || '投降失败', tone: 'bad' });
+    push({ role: 'system', text: err?.data?.message || err?.message || '放弃失败', tone: 'bad' });
   } finally {
     loading.value = false;
   }
@@ -361,7 +361,7 @@ async function submitGuess(item = selected.value) {
             :disabled="!canPlay || loading"
             @click="surrender"
           >
-            投降
+            放弃
           </button>
         </div>
       </section>

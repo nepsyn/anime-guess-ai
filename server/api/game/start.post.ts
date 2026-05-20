@@ -1,5 +1,5 @@
 import { db, initDb, cleanupExpiredSubjects } from '../../utils/db';
-import { findRandomSubject, getRelatedSubjectIds, getSubject } from '../../utils/bangumi';
+import { findRandomSubject, getRelatedSubjectIds, getSubjectWithPersons } from '../../utils/bangumi';
 import { buildHintDeck, HINT_LIMIT, INITIAL_SCORE } from '../../utils/game';
 
 const TTL_MS = Number(process.env.SUBJECT_CACHE_TTL_MS || 7 * 24 * 60 * 60 * 1000);
@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
   let subject: any | null = null;
   const cached = await db`SELECT payload FROM subjects WHERE id = ${subjectId} AND expires_at > ${Date.now()} LIMIT 1`;
   if (!cached.length) {
-    const [freshSubject, relatedIds] = await Promise.all([getSubject(subjectId), getRelatedSubjectIds(subjectId)]);
+    const [freshSubject, relatedIds] = await Promise.all([getSubjectWithPersons(subjectId), getRelatedSubjectIds(subjectId)]);
     subject = freshSubject;
     await db`INSERT INTO subjects (id, payload, related_ids, fetched_at, expires_at)
       VALUES (${subjectId}, ${JSON.stringify(freshSubject)}, ${JSON.stringify(relatedIds)}, ${Date.now()}, ${Date.now() + TTL_MS})
