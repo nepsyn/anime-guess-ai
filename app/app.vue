@@ -245,18 +245,16 @@ async function submitGuess(item = selected.value) {
   <main class="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(129,140,248,.28),_transparent_34%),radial-gradient(circle_at_bottom_right,_rgba(251,191,36,.24),_transparent_32%)] bg-slate-50 px-4 py-8 text-slate-900">
     <div class="mx-auto max-w-5xl space-y-5">
       <section class="glass rounded-3xl p-6">
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <p class="text-sm font-medium text-indigo-600">Bangumi × AI</p>
-            <h1 class="mt-2 text-3xl font-bold text-slate-950">AI 辅助猜动画名</h1>
-            <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-600">AI 根据你的筛选条件从 Bangumi 随机抽取动画。开局会给出初始提示；每局共 10 轮提示，线索会逐步更接近核心信息。</p>
-          </div>
-          <button class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-700 shadow-sm hover:border-indigo-200 hover:bg-indigo-50" title="设置筛选条件" @click="settingsOpen = true">
-            <i class="fa-solid fa-gear mr-2"></i>设置
-          </button>
+        <div>
+          <p class="text-sm font-medium text-indigo-600">Bangumi × AI</p>
+          <h1 class="mt-2 text-3xl font-bold text-slate-950">AI 辅助猜动画名</h1>
+          <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-600">AI 根据你的筛选条件从 Bangumi 随机抽取动画。开局会给出初始提示；每局共 10 轮提示，线索会逐步更接近核心信息。</p>
         </div>
         <div class="mt-5 flex flex-wrap items-center gap-3">
           <button :disabled="loading" class="rounded-2xl bg-indigo-600 px-6 py-3 font-semibold text-white shadow-lg shadow-indigo-200 hover:bg-indigo-500 disabled:opacity-50" @click="startGame">{{ loading ? '处理中…' : '开始新游戏' }}</button>
+          <button class="rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-700 shadow-sm hover:border-indigo-200 hover:bg-indigo-50" title="设置筛选条件" @click="settingsOpen = true">
+            <i class="fa-solid fa-gear mr-2"></i>设置
+          </button>
           <p v-if="canPlay" class="rounded-2xl border border-indigo-100 bg-white px-4 py-3 text-sm font-semibold text-indigo-700 shadow-sm">当前得分：<span class="text-xl text-indigo-600">{{ score }}</span> / 20</p>
         </div>
       </section>
@@ -269,11 +267,11 @@ async function submitGuess(item = selected.value) {
             <p v-if="canPlay" class="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">剩余提示次数：{{ remainingHints }} / {{ totalHints }}</p>
           </div>
         </div>
-        <div class="mt-3 grid gap-2 sm:flex sm:flex-wrap">
-          <input v-model="question" :disabled="!canPlay" class="min-w-[260px] flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" placeholder="例如：它是原创动画吗？有佐仓绫音参与吗？" @keyup.enter="ask" />
-          <button class="min-h-12 rounded-2xl bg-emerald-500 px-5 py-3 font-semibold text-white shadow-sm disabled:opacity-40 sm:min-w-24" :disabled="!canPlay || loading" @click="ask">提问</button>
-          <button class="min-h-12 rounded-2xl bg-amber-500 px-5 py-3 font-semibold text-white shadow-sm disabled:opacity-40 sm:min-w-24" :disabled="!canHint || loading" @click="hint">提示 {{ canPlay ? `(${remainingHints})` : '' }}</button>
-          <button class="min-h-12 rounded-2xl bg-rose-500 px-5 py-3 font-semibold text-white shadow-sm disabled:opacity-40 sm:min-w-24" :disabled="!canPlay || loading" @click="surrender">投降</button>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <input v-model="question" :disabled="!canPlay" class="min-w-[220px] flex-[1_1_100%] rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 sm:flex-1" placeholder="例如：它是原创动画吗？有佐仓绫音参与吗？" @keyup.enter="ask" />
+          <button class="rounded-xl bg-emerald-500 px-4 py-2 font-semibold text-white shadow-sm disabled:opacity-40" :disabled="!canPlay || loading" @click="ask">提问</button>
+          <button class="rounded-xl bg-amber-500 px-4 py-2 font-semibold text-white shadow-sm disabled:opacity-40" :disabled="!canHint || loading" @click="hint">提示 {{ canPlay ? `(${remainingHints})` : '' }}</button>
+          <button class="rounded-xl bg-rose-500 px-4 py-2 font-semibold text-white shadow-sm disabled:opacity-40" :disabled="!canPlay || loading" @click="surrender">投降</button>
         </div>
       </section>
 
