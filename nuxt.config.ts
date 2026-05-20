@@ -6,7 +6,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     aiProvider: process.env.AI_PROVIDER || 'gpt',
     public: {
-      appName: 'AI 猜动画名'
-    }
-  }
-})
+      appName: 'AI 猜动画名',
+    },
+  },
+});
