@@ -82,31 +82,33 @@ describe('pickHint fallback', () => {
 })
 
 describe('buildHintDeck', () => {
-  test('uses AI JSON hints directly and sanitizes title-related hints', async () => {
+  test('asks AI for the fixed ten hint categories in order', async () => {
     const oldFetch = globalThis.fetch
     const oldProvider = process.env.AI_PROVIDER
     const oldKey = process.env.OPENAI_API_KEY
     process.env.AI_PROVIDER = 'gemini'
     delete process.env.OPENAI_API_KEY
     let authorization = ''
+    let prompt = ''
     globalThis.fetch = async (_url, init) => {
       authorization = String((init?.headers as Record<string, string>)?.authorization || '')
+      const body = JSON.parse(String(init?.body || '{}'))
+      prompt = String(body.messages?.[0]?.content || '')
       return new Response(JSON.stringify({
         choices: [{
           message: {
             content: JSON.stringify({
               hints: [
-                '这条包含测试动画标题应被过滤',
-                '它是「2014年」开播的日本电视动画。',
-                '故事有明显的「战斗」与奇幻要素。',
-                '动画制作信息中可以关注「ufotable」。',
-                '主创名单里出现过「测试监督」。',
-                '音乐相关信息里出现「梶浦由记」。',
-                '声演名单里可以关注「佐仓绫音」。',
-                '声演名单里还可以关注「花泽香菜」。',
-                'Bangumi 评分大约在「7分」以上。',
-                '主题歌相关信息里出现「Aimer」。',
-                '它的核心气质更接近热血冒险。'
+                '1. 播出时间是「2014年4月」。',
+                '2. 类型来源可关注「漫画改」。',
+                '3. Bangumi 评分约「7.8」。',
+                '4. 关键标签包括「战斗、奇幻」。',
+                '5. 制作公司是「ufotable」。',
+                '6. 动画导演是「测试监督」。',
+                '7. 关键角色声优有「佐仓绫音」。',
+                '8. 故事简介提到一段奇幻冒险。',
+                '9. 动画名称里带有「测」这个字。',
+                '10. 主角名字可关注「测试主角」。'
               ]
             })
           }
@@ -117,8 +119,12 @@ describe('buildHintDeck', () => {
     try {
       const deck = await buildHintDeck(sampleSubject, { provider: 'gpt', apiKey: 'user-key' })
       expect(authorization).toBe('Bearer user-key')
+      expect(prompt).toContain('1. 播出年份、月份')
+      expect(prompt).toContain('2. 类型（漫画改、原创、游戏改等）')
+      expect(prompt).toContain('9. 动画名称中带的一个字或词')
+      expect(prompt).toContain('10. 主角名字')
       expect(deck).toHaveLength(HINT_LIMIT)
-      expect(deck[0]).toBe('它是「2014年」开播的日本电视动画。')
+      expect(deck[8]).toContain('「测」')
       expect(new Set(deck).size).toBe(HINT_LIMIT)
       expect(deck.join('\n')).not.toContain('测试动画')
       expect(deck.join('\n')).not.toContain('测试别名')
@@ -131,7 +137,7 @@ describe('buildHintDeck', () => {
     }
   })
 
-  test('falls back to ten non-repeating title-safe hints when AI is unavailable', async () => {
+  test('throws an error instead of using fallback hints when AI is unavailable', async () => {
     const oldProvider = process.env.AI_PROVIDER
     const oldOpenAiKey = process.env.OPENAI_API_KEY
     const oldGeminiKey = process.env.GEMINI_API_KEY
@@ -140,11 +146,7 @@ describe('buildHintDeck', () => {
     delete process.env.GEMINI_API_KEY
 
     try {
-      const deck = await buildHintDeck(sampleSubject)
-      expect(deck).toHaveLength(HINT_LIMIT)
-      expect(new Set(deck).size).toBe(HINT_LIMIT)
-      expect(deck.join('\n')).not.toContain('测试动画')
-      expect(deck.join('\n')).not.toContain('测试别名')
+      await expect(buildHintDeck(sampleSubject)).rejects.toThrow('提示生成失败')
     } finally {
       if (oldProvider === undefined) delete process.env.AI_PROVIDER
       else process.env.AI_PROVIDER = oldProvider
@@ -166,9 +168,8 @@ describe('buildHintDeck', () => {
     }
 
     try {
-      const deck = await buildHintDeck(sampleSubject)
+      await expect(buildHintDeck(sampleSubject)).rejects.toThrow('提示生成失败')
       expect(called).toBe(false)
-      expect(deck).toHaveLength(HINT_LIMIT)
     } finally {
       globalThis.fetch = oldFetch
       if (oldProvider === undefined) delete process.env.AI_PROVIDER

@@ -261,18 +261,6 @@ async function submitGuess(item = selected.value) {
         </div>
       </section>
 
-      <section v-if="revealedAnswer" class="glass rounded-3xl p-5">
-        <h2 class="font-semibold text-slate-950">最终答案</h2>
-        <div class="mt-3 flex gap-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-          <img v-if="revealedAnswer.image" :src="revealedAnswer.image" class="h-40 w-28 rounded-xl object-cover shadow" />
-          <div>
-            <p class="text-xl font-bold text-slate-950">{{ answerTitle(revealedAnswer) }}</p>
-            <p v-if="revealedAnswer.name_cn && revealedAnswer.name_cn !== revealedAnswer.name" class="mt-1 text-sm text-slate-600">{{ revealedAnswer.name }}</p>
-            <a :href="revealedAnswer.url" target="_blank" class="mt-3 inline-block rounded-full bg-white px-3 py-1 text-sm font-medium text-indigo-600 shadow-sm">Bangumi #{{ revealedAnswer.id }}</a>
-          </div>
-        </div>
-      </section>
-
       <section class="glass rounded-3xl p-5">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <h2 class="font-semibold text-slate-950">提问</h2>
@@ -281,11 +269,11 @@ async function submitGuess(item = selected.value) {
             <p v-if="canPlay" class="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">剩余提示次数：{{ remainingHints }} / {{ totalHints }}</p>
           </div>
         </div>
-        <div class="mt-3 flex flex-wrap gap-2">
+        <div class="mt-3 grid gap-2 sm:flex sm:flex-wrap">
           <input v-model="question" :disabled="!canPlay" class="min-w-[260px] flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" placeholder="例如：它是原创动画吗？有佐仓绫音参与吗？" @keyup.enter="ask" />
-          <button class="rounded-2xl bg-emerald-500 px-4 font-semibold text-white shadow-sm disabled:opacity-40" :disabled="!canPlay || loading" @click="ask">问</button>
-          <button class="rounded-2xl bg-amber-500 px-4 font-semibold text-white shadow-sm disabled:opacity-40" :disabled="!canHint || loading" @click="hint">提示 {{ canPlay ? `(${remainingHints})` : '' }}</button>
-          <button class="rounded-2xl bg-rose-500 px-4 font-semibold text-white shadow-sm disabled:opacity-40" :disabled="!canPlay || loading" @click="surrender">投降</button>
+          <button class="min-h-12 rounded-2xl bg-emerald-500 px-5 py-3 font-semibold text-white shadow-sm disabled:opacity-40 sm:min-w-24" :disabled="!canPlay || loading" @click="ask">提问</button>
+          <button class="min-h-12 rounded-2xl bg-amber-500 px-5 py-3 font-semibold text-white shadow-sm disabled:opacity-40 sm:min-w-24" :disabled="!canHint || loading" @click="hint">提示 {{ canPlay ? `(${remainingHints})` : '' }}</button>
+          <button class="min-h-12 rounded-2xl bg-rose-500 px-5 py-3 font-semibold text-white shadow-sm disabled:opacity-40 sm:min-w-24" :disabled="!canPlay || loading" @click="surrender">投降</button>
         </div>
       </section>
 

@@ -23,7 +23,12 @@ export default defineEventHandler(async (event) => {
     subject = JSON.parse(cached[0].payload)
   }
   const aiConfig = { provider: body?.provider, ...(body?.aiConfig || {}) }
-  const hintDeck = await buildHintDeck(subject, aiConfig)
+  let hintDeck: string[]
+  try {
+    hintDeck = await buildHintDeck(subject, aiConfig)
+  } catch (err: any) {
+    throw createError({ statusCode: 400, statusMessage: '提示生成失败', message: err?.message || '提示生成失败' })
+  }
   const initialHint = hintDeck[0]
   const sessionId = crypto.randomUUID()
   await db`INSERT INTO games (id, subject_id, filters, used_hints, hint_deck, asked, score, created_at, updated_at)

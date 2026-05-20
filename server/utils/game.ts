@@ -329,27 +329,38 @@ function normalizeHintArray(input: any, subject: any) {
 }
 
 export async function buildHintDeck(subject: any, config?: string | AiConfig) {
-  const prompt = `你在主持一个猜动画名游戏。请基于 Bangumi 资料，为答案动画生成 10 条从宽泛到核心、但不直接泄露答案的中文提示。
+  const prompt = `你在主持一个猜动画名游戏。请基于 Bangumi 资料，为答案动画生成 10 条中文提示。
 严格规则：
 - 只能输出 JSON：{"hints":["提示1",...,"提示10"]}
-- 必须正好 10 条，每条 15-60 个中文字符左右。
-- 不要出现动画的标题、中文名、英文名、别名、系列标题，也不要出现与标题明显相关的标签词。
-- 如果 Bangumi 标签、简介、人名或条目名中包含标题关键词、系列名、角色名等明显指向答案的信息，必须跳过，不要写入提示。
-- 可以使用年份、地区、类型、评分区间、制作公司、监督、编剧、音乐、声优、主题歌、非标题类标签、简介氛围等信息。
-- 越靠后的提示越接近核心信息，但仍不能直接说出标题或标题形状。
-- 关键人名、公司、标签、年份等可用「」标记，便于页面高亮。
-- 不要编造资料中没有的信息。
+- 必须正好 10 条，每条 15-80 个中文字符左右，顺序和内容必须严格对应下面 10 类。
+- 不要出现动画完整标题、中文名、英文名、别名或系列完整标题。
+- 第 9 条允许透露动画名称中带的一个字或一个短词，但不能给出完整标题。
+- 第 10 条允许透露主角名字；如果 Bangumi 资料里没有明确主角，请写“主角资料不明确”。
+- 关键人名、公司、标签、年份、月份等可用「」标记，便于页面高亮。
+- 不要编造 Bangumi 资料中没有的信息；资料缺失时应明确写资料不明确。
+
+10 条提示必须按此顺序生成：
+1. 播出年份、月份
+2. 类型（漫画改、原创、游戏改等）
+3. Bangumi 评分
+4. 关键标签
+5. 制作公司
+6. 动画导演
+7. 关键角色声优
+8. 故事简介
+9. 动画名称中带的一个字或词
+10. 主角名字
 
 Bangumi资料：${JSON.stringify(compactSubjectForAi(subject)).slice(0, 12000)}`
 
   try {
     const parsed = await callHintAiJson(prompt, config)
     const hints = normalizeHintArray(parsed?.hints, subject)
-    if (hints.length === HINT_LIMIT) return hints
-  } catch {
-    // fall through to deterministic safe fallback
+    if (hints.length !== HINT_LIMIT) throw new Error(`模型返回了 ${hints.length} 条有效提示，需要 ${HINT_LIMIT} 条`)
+    return hints
+  } catch (err: any) {
+    throw new Error(`提示生成失败：${err?.message || '模型未返回可用提示'}`)
   }
-  return buildFallbackHintDeck(subject)
 }
 
 export function pickHint(subject: any, usedHints = new Set<string>(), turn = 0) {
