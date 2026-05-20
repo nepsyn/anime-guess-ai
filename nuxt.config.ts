@@ -5,14 +5,13 @@ export default defineNuxtConfig({
   css: ['@fortawesome/fontawesome-free/css/all.min.css', '~/assets/css/main.css'],
   app: {
     head: {
-      title: '婆罗门猜猜乐',
-      link: [{ rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
+      title: '二次元婆罗门猜猜乐',
+      link: [{ rel: 'icon', type: 'image/svg+xml', href: '/favicon.ico' }],
     },
   },
   runtimeConfig: {
-    aiProvider: process.env.AI_PROVIDER || 'gpt',
     public: {
-      appName: '婆罗门猜猜乐',
+      appName: '二次元婆罗门猜猜乐',
     },
   },
 });

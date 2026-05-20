@@ -294,7 +294,7 @@ async function submitGuess(item = selected.value) {
       <section class="glass rounded-3xl px-3 py-4 sm:px-4">
         <div>
           <p class="text-xs font-medium text-indigo-600">Anime Guess！</p>
-          <h1 class="mt-1 text-2xl font-bold text-slate-950 sm:text-3xl">婆罗门猜猜乐</h1>
+          <h1 class="mt-1 text-2xl font-bold text-slate-950 sm:text-3xl">二次元婆罗门猜猜乐</h1>
           <p class="mt-2 max-w-3xl text-xs leading-5 text-slate-600 sm:text-sm">
             AI 根据你的筛选条件从 Bangumi 随机抽取动画。开局会给出初始提示；每局共 10 轮提示，线索会逐步更接近核心信息。开局20分，每次提示-2分，每次提问-1分。
           </p>
