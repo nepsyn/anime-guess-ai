@@ -88,8 +88,8 @@ export function normalizeFilters(filters: PlayerFilters = {}): BangumiFilter {
   const ratingCountMin = Number(filters.ratingCountMin);
   const ratingCountMax = Number(filters.ratingCountMax);
   if (Number.isFinite(ratingCountMin) || Number.isFinite(ratingCountMax)) {
-    const min = Number.isFinite(ratingCountMin) ? Math.max(0, Math.floor(ratingCountMin)) : 0;
-    const max = Number.isFinite(ratingCountMax) ? Math.max(0, Math.floor(ratingCountMax)) : 1000000;
+    const min = Number.isFinite(ratingCountMin) ? Math.max(0, Math.floor(ratingCountMin)) : 1;
+    const max = Number.isFinite(ratingCountMax) ? Math.max(0, Math.floor(ratingCountMax)) : 99999;
     result.rating_count = [`>=${min}`, `<=${max}`];
   }
 
