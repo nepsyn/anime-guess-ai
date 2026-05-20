@@ -48,10 +48,38 @@ describe('app layout controls', () => {
     expect(source).toContain('px-3 py-4 sm:px-4');
   });
 
-  test('marks model API key as optional when server environment key is configured', () => {
+  test('keeps start buttons text stable while loading and gives hero actions consistent sizing', () => {
+    const source = appVue();
+    const heroControls = source.match(/<div class="mt-3 flex flex-wrap items-center gap-2[\s\S]*?<\/div>/)?.[0] || '';
+
+    expect(source).not.toContain("{{ loading ? '准备游戏中…' : '开始新游戏' }}");
+    expect(source).not.toContain("{{ loading ? '准备游戏中…' : '按当前设置开始新游戏' }}");
+    expect(source).toMatch(/>\s*开始新游戏\s*<\/button>/);
+    expect(source).toMatch(/>\s*按当前设置开始新游戏\s*<\/button>/);
+    expect(heroControls).toContain('h-10');
+    expect(heroControls).toContain('min-w-[96px]');
+    expect(heroControls).toContain('当前得分：');
+  });
+
+  test('supports rating count filter and links revealed titles in the log to Bangumi', () => {
     const source = appVue();
 
-    expect(source).toContain('模型 API Key（可选，仅保存在本机浏览器 localStorage）');
-    expect(source).toContain('已配置服务端环境变量时可留空');
+    expect(source).toContain('ratingCountMin');
+    expect(source).toContain('ratingCountMax');
+    expect(source).toContain('评分人数下限');
+    expect(source).toContain('评分人数上限');
+    expect(source).toContain('link?: string;');
+    expect(source).toContain('link: answer.url');
+    expect(source).toContain('v-if="item.link"');
+    expect(source).toContain(':href="item.link"');
+  });
+
+  test('shows the answer dialog with abandon-specific text after surrender', () => {
+    const source = appVue();
+
+    expect(source).toContain("showCorrectDialog(res.answer, res.message, '放弃成功')");
+    expect(source).toContain("title = '回答正确！'");
+    expect(source).toContain("'放弃成功'");
+    expect(source).toContain('{{ correctDialog.title }}');
   });
 });

@@ -20,6 +20,8 @@ describe('normalizeFilters', () => {
       tags: '战斗, 校园 ',
       ratingMin: 7,
       ratingMax: 8.5,
+      ratingCountMin: 200,
+      ratingCountMax: 5000,
     });
 
     expect(result.type).toEqual([2]);
@@ -27,6 +29,7 @@ describe('normalizeFilters', () => {
     expect(result.tag).toEqual(['战斗', '校园']);
     expect(result.air_date).toEqual(['>=2014-01-01', '<=2016-12-31']);
     expect(result.rating).toEqual(['>=7', '<=8.5']);
+    expect(result.rating_count).toEqual(['>=200', '<=5000']);
   });
 
   test('adds China country meta tag for Chinese anime', () => {

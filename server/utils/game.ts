@@ -19,6 +19,8 @@ export type PlayerFilters = {
   tags?: string | string[];
   ratingMin?: number | null;
   ratingMax?: number | null;
+  ratingCountMin?: number | null;
+  ratingCountMax?: number | null;
 };
 
 export type BangumiFilter = {
@@ -27,6 +29,7 @@ export type BangumiFilter = {
   tag?: string[];
   air_date?: [string, string];
   rating?: [string, string];
+  rating_count?: [string, string];
 };
 
 const FORMAT_META_TAGS: Record<string, string> = {
@@ -80,6 +83,14 @@ export function normalizeFilters(filters: PlayerFilters = {}): BangumiFilter {
     const min = Number.isFinite(ratingMin) ? Math.max(0, Math.min(10, ratingMin)) : 0;
     const max = Number.isFinite(ratingMax) ? Math.max(0, Math.min(10, ratingMax)) : 10;
     result.rating = [`>=${min}`, `<=${max}`];
+  }
+
+  const ratingCountMin = Number(filters.ratingCountMin);
+  const ratingCountMax = Number(filters.ratingCountMax);
+  if (Number.isFinite(ratingCountMin) || Number.isFinite(ratingCountMax)) {
+    const min = Number.isFinite(ratingCountMin) ? Math.max(0, Math.floor(ratingCountMin)) : 0;
+    const max = Number.isFinite(ratingCountMax) ? Math.max(0, Math.floor(ratingCountMax)) : 1000000;
+    result.rating_count = [`>=${min}`, `<=${max}`];
   }
 
   return result;

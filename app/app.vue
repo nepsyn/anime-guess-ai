@@ -15,6 +15,7 @@ type ChatItem = {
   tone?: 'ok' | 'bad' | 'info';
   image?: string;
   boldText?: string;
+  link?: string;
 };
 
 const filters = reactive({
@@ -25,6 +26,8 @@ const filters = reactive({
   tags: '',
   ratingMin: 6,
   ratingMax: 10,
+  ratingCountMin: null as number | null,
+  ratingCountMax: null as number | null,
 });
 const provider = ref<'gpt' | 'gemini'>('gpt');
 const modelApiKey = ref('');
@@ -38,7 +41,7 @@ const guessText = ref('');
 const searchResults = ref<SearchResult[]>([]);
 const selected = ref<SearchResult | null>(null);
 const revealedAnswer = ref<Answer | null>(null);
-const correctDialog = ref<{ answer: Answer; score: number; message: string } | null>(null);
+const correctDialog = ref<{ answer: Answer; score: number; message: string; title: string } | null>(null);
 const remainingHints = ref(0);
 const totalHints = ref(10);
 const score = ref(0);
@@ -131,14 +134,16 @@ function reveal(answer: Answer, prefix = '答案') {
   revealedAnswer.value = answer;
   push({
     role: 'system',
-    text: `${prefix}：${answerTitle(answer)}（Bangumi #${answer.id}）`,
+    text: `${prefix}：`,
+    boldText: `${answerTitle(answer)}（Bangumi #${answer.id}）`,
     tone: 'ok',
     image: answer.image,
+    link: answer.url,
   });
 }
 
-function showCorrectDialog(answer: Answer, message: string) {
-  correctDialog.value = { answer, score: score.value, message };
+function showCorrectDialog(answer: Answer, message: string, title = '回答正确！') {
+  correctDialog.value = { answer, score: score.value, message, title };
 }
 
 function closeCorrectDialog() {
@@ -241,6 +246,7 @@ async function surrender() {
     });
     score.value = res.score;
     reveal(res.answer, '放弃成功，正确答案');
+    showCorrectDialog(res.answer, res.message, '放弃成功');
   } catch (err: any) {
     push({ role: 'system', text: err?.data?.message || err?.message || '放弃失败', tone: 'bad' });
   } finally {
@@ -275,7 +281,7 @@ async function submitGuess(item = selected.value) {
       answer?: Answer;
     }>('/api/game/guess', { method: 'POST', body: { sessionId: sessionId.value, subjectId: item.id } });
     score.value = res.score;
-    push({ role: 'player', text: '我猜是：', boldText: guessedTitle, image: item.image });
+    push({ role: 'player', text: '我猜是：', boldText: guessedTitle, image: item.image, link: `https://bgm.tv/subject/${item.id}` });
     clearGuessSearch();
     if (res.correct && res.answer) {
       reveal(res.answer, `🎉 ${res.message} 答案`);
@@ -308,13 +314,13 @@ async function submitGuess(item = selected.value) {
         <div class="mt-3 flex flex-wrap items-center gap-2">
           <button
             :disabled="loading"
-            class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-200 hover:bg-indigo-500 disabled:opacity-50 sm:px-5 sm:py-2.5"
+            class="h-10 min-w-[96px] rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-200 hover:bg-indigo-500 disabled:opacity-50"
             @click="startGame"
           >
-            {{ loading ? '准备游戏中…' : '开始新游戏' }}
+            开始新游戏
           </button>
           <button
-            class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:border-indigo-200 hover:bg-indigo-50"
+            class="flex h-10 min-w-[96px] items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:border-indigo-200 hover:bg-indigo-50"
             title="设置筛选条件"
             @click="settingsOpen = true"
           >
@@ -322,9 +328,9 @@ async function submitGuess(item = selected.value) {
           </button>
           <p
             v-if="sessionId"
-            class="rounded-xl border border-indigo-100 bg-white px-3 py-2 text-xs font-semibold text-indigo-700 shadow-sm"
+            class="flex h-10 min-w-[96px] items-center justify-center rounded-xl border border-indigo-100 bg-white px-4 py-2 text-sm font-semibold text-indigo-700 shadow-sm"
           >
-            当前得分：<span class="text-xl text-indigo-600">{{ score }}</span> / 20
+            当前得分：<span class="ml-1 text-sm text-indigo-600">{{ score }}</span> / 20
           </p>
         </div>
       </section>
@@ -425,8 +431,15 @@ async function submitGuess(item = selected.value) {
               <p class="leading-6">
                 <span class="mr-2 text-xs uppercase text-slate-500">{{ item.role }}</span>
                 <template v-if="item.boldText">
-                  <span>{{ item.text }}</span
-                  ><strong class="ml-1 font-bold text-slate-950">{{ item.boldText }}</strong>
+                  <span>{{ item.text }}</span>
+                  <a
+                    v-if="item.link"
+                    :href="item.link"
+                    target="_blank"
+                    class="ml-1 font-bold text-indigo-700 underline decoration-indigo-300 underline-offset-2 hover:text-indigo-500"
+                    >{{ item.boldText }}</a
+                  >
+                  <strong v-else class="ml-1 font-bold text-slate-950">{{ item.boldText }}</strong>
                 </template>
                 <template v-else>
                   <span
@@ -455,7 +468,7 @@ async function submitGuess(item = selected.value) {
       <section class="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-emerald-100">
         <div class="bg-gradient-to-r from-emerald-500 to-indigo-500 px-6 py-5 text-white">
           <p class="text-sm font-semibold opacity-90">{{ correctDialog.message }}</p>
-          <h2 class="mt-1 text-2xl font-bold">回答正确！</h2>
+          <h2 class="mt-1 text-2xl font-bold">{{ correctDialog.title }}</h2>
         </div>
         <div class="p-6">
           <div class="flex gap-4">
@@ -550,6 +563,24 @@ async function submitGuess(item = selected.value) {
             type="number"
         /></label>
         <label
+          >评分人数下限<input
+            v-model.number="filters.ratingCountMin"
+            class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+            min="0"
+            placeholder="不限"
+            step="1"
+            type="number"
+        /></label>
+        <label
+          >评分人数上限<input
+            v-model.number="filters.ratingCountMax"
+            class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+            min="0"
+            placeholder="不限"
+            step="1"
+            type="number"
+        /></label>
+        <label
           >类型
           <select
             v-model="filters.format"
@@ -623,7 +654,7 @@ async function submitGuess(item = selected.value) {
         class="mt-6 w-full rounded-2xl bg-indigo-600 px-4 py-3 font-semibold text-white shadow-lg shadow-indigo-200 hover:bg-indigo-500 disabled:opacity-50"
         @click="startGame"
       >
-        {{ loading ? '准备游戏中…' : '按当前设置开始新游戏' }}
+        按当前设置开始新游戏
       </button>
     </aside>
   </main>
