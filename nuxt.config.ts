@@ -1,7 +1,7 @@
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: false },
-  modules: ['@nuxtjs/tailwindcss'],
+  modules: ['@nuxtjs/tailwindcss', '@nuxt/scripts'],
   css: ['@fortawesome/fontawesome-free/css/all.min.css', '~/assets/css/main.css'],
   app: {
     head: {
@@ -12,6 +12,10 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       appName: '二次元婆罗门猜猜乐',
+      umami: {
+        websiteId: process.env.NUXT_PUBLIC_UMAMI_WEBSITE_ID || '',
+        hostUrl: process.env.NUXT_PUBLIC_UMAMI_HOST_URL || '',
+      },
     },
   },
 });
