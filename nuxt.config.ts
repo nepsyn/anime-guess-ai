@@ -13,8 +13,8 @@ export default defineNuxtConfig({
     public: {
       appName: '二次元婆罗门猜猜乐',
       umami: {
-        websiteId: process.env.UMAMI_WEBSITE_ID || process.env.NUXT_PUBLIC_UMAMI_WEBSITE_ID || '',
-        hostUrl: process.env.UMAMI_HOST_URL || process.env.NUXT_PUBLIC_UMAMI_HOST_URL || '',
+        websiteId: '',
+        hostUrl: '',
       },
     },
   },
