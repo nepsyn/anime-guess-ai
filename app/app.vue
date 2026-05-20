@@ -293,10 +293,10 @@ async function submitGuess(item = selected.value) {
     <div class="mx-auto max-w-4xl space-y-3">
       <section class="glass rounded-3xl px-3 py-4 sm:px-4">
         <div>
-          <p class="text-xs font-medium text-indigo-600">Bangumi × AI</p>
+          <p class="text-xs font-medium text-indigo-600">Anime Guess！</p>
           <h1 class="mt-1 text-2xl font-bold text-slate-950 sm:text-3xl">婆罗门猜猜乐</h1>
           <p class="mt-2 max-w-3xl text-xs leading-5 text-slate-600 sm:text-sm">
-            AI 根据你的筛选条件从 Bangumi 随机抽取动画。开局会给出初始提示；每局共 10 轮提示，线索会逐步更接近核心信息。
+            AI 根据你的筛选条件从 Bangumi 随机抽取动画。开局会给出初始提示；每局共 10 轮提示，线索会逐步更接近核心信息。开局20分，每次提示-2分，每次提问-1分。
           </p>
         </div>
         <div class="mt-3 flex flex-wrap items-center gap-2">
@@ -305,7 +305,7 @@ async function submitGuess(item = selected.value) {
             class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-200 hover:bg-indigo-500 disabled:opacity-50 sm:px-5 sm:py-2.5"
             @click="startGame"
           >
-            {{ loading ? '处理中…' : '开始新游戏' }}
+            {{ loading ? '准备游戏中…' : '开始新游戏' }}
           </button>
           <button
             class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:border-indigo-200 hover:bg-indigo-50"
@@ -340,7 +340,7 @@ async function submitGuess(item = selected.value) {
             v-model="question"
             :disabled="!canPlay"
             class="min-w-[180px] flex-[1_1_100%] rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 sm:flex-1"
-            placeholder="例如：它是原创动画吗？有佐仓绫音参与吗？"
+            placeholder="例如：它是原创动画吗？"
             @keyup.enter="ask"
           />
           <button
@@ -565,7 +565,7 @@ async function submitGuess(item = selected.value) {
             <option value="all">不限</option>
             <option value="japan">日本</option>
             <option value="western">欧美</option>
-            <option value="china">国产</option>
+            <option value="china">中国</option>
           </select>
         </label>
         <label class="col-span-2"
@@ -617,7 +617,7 @@ async function submitGuess(item = selected.value) {
         class="mt-6 w-full rounded-2xl bg-indigo-600 px-4 py-3 font-semibold text-white shadow-lg shadow-indigo-200 hover:bg-indigo-500 disabled:opacity-50"
         @click="startGame"
       >
-        {{ loading ? '处理中…' : '按当前设置开始新游戏' }}
+        {{ loading ? '准备游戏中…' : '按当前设置开始新游戏' }}
       </button>
     </aside>
   </main>
