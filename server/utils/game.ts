@@ -43,10 +43,10 @@ const COUNTRY_META_TAGS: Record<string, string> = {
   western: '欧美',
   west: '欧美',
   欧美: '欧美',
-  china: '国产',
-  cn: '国产',
-  chinese: '国产',
-  国产: '国产',
+  china: '中国',
+  cn: '中国',
+  chinese: '中国',
+  中国: '中国',
 };
 
 export function normalizeFilters(filters: PlayerFilters = {}): BangumiFilter {
