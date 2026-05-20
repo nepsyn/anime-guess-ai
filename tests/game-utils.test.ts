@@ -36,6 +36,13 @@ describe('normalizeFilters', () => {
     expect(normalizeFilters({ country: 'china' }).meta_tags).toEqual(['中国']);
     expect(normalizeFilters({ country: '中国' }).meta_tags).toEqual(['中国']);
   });
+
+  test('omits upper bounds when the player leaves rating limits unrestricted', () => {
+    const result = normalizeFilters({ ratingMin: 7, ratingMax: null, ratingCountMin: 500, ratingCountMax: null });
+
+    expect(result.rating).toEqual(['>=7']);
+    expect(result.rating_count).toEqual(['>=500']);
+  });
 });
 
 describe('isCorrectGuess', () => {

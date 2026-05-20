@@ -82,4 +82,33 @@ describe('app layout controls', () => {
     expect(source).toContain("'放弃成功'");
     expect(source).toContain('{{ correctDialog.title }}');
   });
+
+  test('uses the requested default filters with open-ended upper bounds', () => {
+    const source = appVue();
+
+    expect(source).toContain("format: 'tv'");
+    expect(source).toContain("country: 'japan'");
+    expect(source).toContain('ratingMin: 7');
+    expect(source).toContain('ratingMax: null as number | null');
+    expect(source).toContain('ratingCountMin: 500');
+    expect(source).toContain('ratingCountMax: null as number | null');
+  });
+
+  test('shows concrete server error messages and stores history in browser localStorage next to settings', () => {
+    const source = appVue();
+    const heroControls = source.match(/<div class="mt-3 flex flex-wrap items-center gap-2[\s\S]*?<\/div>/)?.[0] || '';
+
+    expect(source).toContain('function errorMessage(err: any, fallback: string)');
+    expect(source).toContain('err?.data?.statusMessage');
+    expect(source).toContain('err?.statusMessage');
+    expect(heroControls).toContain('@click="openHistory"');
+    expect(heroControls).toContain('fa-clock-rotate-left');
+    expect(source).toContain('HISTORY_STORAGE_KEY');
+    expect(source).toContain('localStorage.getItem(HISTORY_STORAGE_KEY)');
+    expect(source).toContain('localStorage.setItem(HISTORY_STORAGE_KEY');
+    expect(source).toContain('saveHistory(answer)');
+    expect(source).not.toContain('/api/game/history');
+    expect(source).toContain('历史题目');
+    expect(source).toContain('v-for="item in historyItems"');
+  });
 });

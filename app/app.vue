@@ -9,6 +9,7 @@ type SearchResult = {
   rank?: number;
 };
 type Answer = { id: number; name: string; name_cn?: string; image?: string; url: string };
+type HistoryItem = { answer: Answer; score: number; createdAt: number; updatedAt: number };
 type ChatItem = {
   role: 'system' | 'player' | 'ai';
   text: string;
@@ -21,12 +22,12 @@ type ChatItem = {
 const filters = reactive({
   yearFrom: 2010,
   yearTo: new Date().getFullYear(),
-  format: 'all',
-  country: 'all',
+  format: 'tv',
+  country: 'japan',
   tags: '',
-  ratingMin: 6,
-  ratingMax: 10,
-  ratingCountMin: null as number | null,
+  ratingMin: 7,
+  ratingMax: null as number | null,
+  ratingCountMin: 500,
   ratingCountMax: null as number | null,
 });
 const provider = ref<'gpt' | 'gemini'>('gpt');
@@ -36,6 +37,8 @@ const openAiBaseUrl = ref('');
 const sessionId = ref('');
 const loading = ref(false);
 const settingsOpen = ref(false);
+const historyOpen = ref(false);
+const historyItems = ref<HistoryItem[]>([]);
 const question = ref('');
 const guessText = ref('');
 const searchResults = ref<SearchResult[]>([]);
@@ -50,6 +53,7 @@ const chat = ref<ChatItem[]>([
 ]);
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
 const SETTINGS_STORAGE_KEY = 'anime-guess-ai:game-settings';
+const HISTORY_STORAGE_KEY = 'anime-guess-ai:game-history';
 
 function aiConfig() {
   return {
@@ -102,6 +106,50 @@ function push(item: ChatItem) {
   chat.value.unshift(item);
 }
 
+function errorMessage(err: any, fallback: string) {
+  const message =
+    err?.data?.message ||
+    err?.data?.statusMessage ||
+    err?.statusMessage ||
+    err?.statusText ||
+    err?.message ||
+    fallback;
+  return String(message || fallback);
+}
+
+function loadHistory() {
+  if (!import.meta.client) return [];
+  try {
+    const parsed = JSON.parse(localStorage.getItem(HISTORY_STORAGE_KEY) || '[]');
+    return Array.isArray(parsed) ? parsed.slice(0, 50) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveHistory(answer: Answer) {
+  if (!import.meta.client) return;
+  const now = Date.now();
+  const item: HistoryItem = { answer, score: score.value, createdAt: now, updatedAt: now };
+  const next = [item, ...loadHistory()].slice(0, 50);
+  localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(next));
+  historyItems.value = next;
+}
+
+function openHistory() {
+  historyItems.value = loadHistory();
+  historyOpen.value = true;
+}
+
+function closeHistory() {
+  historyOpen.value = false;
+}
+
+function formatDate(timestamp: number) {
+  if (!timestamp) return '时间未知';
+  return new Date(timestamp).toLocaleString('zh-CN');
+}
+
 function clearGuessSearch() {
   selected.value = null;
   guessText.value = '';
@@ -140,6 +188,7 @@ function reveal(answer: Answer, prefix = '答案') {
     image: answer.image,
     link: answer.url,
   });
+  saveHistory(answer);
 }
 
 function showCorrectDialog(answer: Answer, message: string, title = '回答正确！') {
@@ -181,7 +230,7 @@ async function startGame() {
       { role: 'system', text: res.message, tone: 'ok' },
     ];
   } catch (err: any) {
-    push({ role: 'system', text: err?.data?.message || err?.message || '开始游戏失败', tone: 'bad' });
+    push({ role: 'system', text: errorMessage(err, '开始游戏失败'), tone: 'bad' });
   } finally {
     loading.value = false;
   }
@@ -201,7 +250,7 @@ async function ask() {
     score.value = res.score;
     push({ role: 'ai', text: res.answer, tone: res.answer === '是' ? 'ok' : res.answer === '不是' ? 'bad' : 'info' });
   } catch (err: any) {
-    push({ role: 'system', text: err?.data?.message || err?.message || 'AI 回答失败', tone: 'bad' });
+    push({ role: 'system', text: errorMessage(err, 'AI 回答失败'), tone: 'bad' });
   } finally {
     loading.value = false;
   }
@@ -228,7 +277,7 @@ async function hint() {
       push({ role: 'ai', text: `提示：${res.hint}`, tone: 'info' });
     }
   } catch (err: any) {
-    push({ role: 'system', text: err?.data?.message || err?.message || '获取提示失败', tone: 'bad' });
+    push({ role: 'system', text: errorMessage(err, '获取提示失败'), tone: 'bad' });
   } finally {
     loading.value = false;
   }
@@ -248,7 +297,7 @@ async function surrender() {
     reveal(res.answer, '放弃成功，正确答案');
     showCorrectDialog(res.answer, res.message, '放弃成功');
   } catch (err: any) {
-    push({ role: 'system', text: err?.data?.message || err?.message || '放弃失败', tone: 'bad' });
+    push({ role: 'system', text: errorMessage(err, '放弃失败'), tone: 'bad' });
   } finally {
     loading.value = false;
   }
@@ -290,7 +339,7 @@ async function submitGuess(item = selected.value) {
       push({ role: 'system', text: res.message, tone: 'bad' });
     }
   } catch (err: any) {
-    push({ role: 'system', text: err?.data?.message || err?.message || '提交答案失败', tone: 'bad' });
+    push({ role: 'system', text: errorMessage(err, '提交答案失败'), tone: 'bad' });
   } finally {
     loading.value = false;
   }
@@ -325,6 +374,13 @@ async function submitGuess(item = selected.value) {
             @click="settingsOpen = true"
           >
             <i class="fa-solid fa-gear mr-2"></i>设置
+          </button>
+          <button
+            class="flex h-10 min-w-[96px] items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:border-indigo-200 hover:bg-indigo-50"
+            title="查看历史题目"
+            @click="openHistory"
+          >
+            <i class="fa-solid fa-clock-rotate-left mr-2"></i>历史记录
           </button>
           <p
             v-if="sessionId"
@@ -513,6 +569,51 @@ async function submitGuess(item = selected.value) {
             >
               关闭
             </button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div
+      v-if="historyOpen"
+      class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/40 px-4 backdrop-blur-sm"
+      @click.self="closeHistory"
+    >
+      <section class="max-h-[86vh] w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-indigo-100">
+        <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <div>
+            <p class="text-xs font-medium text-indigo-600">History</p>
+            <h2 class="text-xl font-bold text-slate-950"><i class="fa-solid fa-clock-rotate-left mr-2 text-indigo-600"></i>历史题目</h2>
+          </div>
+          <button class="rounded-full p-2 text-slate-500 hover:bg-slate-100" @click="closeHistory">
+            <i class="fa-solid fa-xmark text-xl"></i>
+          </button>
+        </div>
+        <div class="max-h-[70vh] overflow-y-auto p-5">
+          <p v-if="!historyItems.length" class="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">暂无历史题目。</p>
+          <div v-else class="space-y-3">
+            <article
+              v-for="item in historyItems"
+              :key="`${item.createdAt}-${item.answer.id}`"
+              class="flex gap-3 rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-sm"
+            >
+              <img v-if="item.answer.image" :src="item.answer.image" class="h-20 w-14 rounded-lg object-cover shadow-sm" />
+              <div class="min-w-0 flex-1">
+                <a
+                  :href="item.answer.url"
+                  target="_blank"
+                  class="font-bold text-indigo-700 underline decoration-indigo-300 underline-offset-2 hover:text-indigo-500"
+                  >{{ answerTitle(item.answer) }}</a
+                >
+                <p v-if="item.answer.name_cn && item.answer.name_cn !== item.answer.name" class="mt-1 truncate text-xs text-slate-500">
+                  {{ item.answer.name }}
+                </p>
+                <p class="mt-1 text-xs text-slate-500">Bangumi #{{ item.answer.id }} · {{ formatDate(item.createdAt) }}</p>
+                <p class="mt-2 inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                  得分 {{ item.score }} / 20
+                </p>
+              </div>
+            </article>
           </div>
         </div>
       </section>
