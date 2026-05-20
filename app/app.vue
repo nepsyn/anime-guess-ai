@@ -49,7 +49,7 @@ const remainingHints = ref(0);
 const totalHints = ref(10);
 const score = ref(0);
 const chat = ref<ChatItem[]>([
-  { role: 'system', text: '设置筛选条件后开始游戏。AI 会从 Bangumi 随机挑一部动画，你可以问是/不是/不确定问题。' },
+  { role: 'system', text: '设置筛选条件后开始游戏。AI 会从 Bangumi 随机挑一部动画，你可以问 AI 关于此动画的问题，AI 会回答是/不是/不确定。' },
 ]);
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
 const SETTINGS_STORAGE_KEY = 'anime-guess-ai:game-settings';
