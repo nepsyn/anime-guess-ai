@@ -155,13 +155,38 @@ export function configuredProvider(input?: string): AiProvider {
   return p.includes('gemini') ? 'gemini' : 'gpt';
 }
 
+function envApiKeyFor(provider: AiProvider) {
+  return String(provider === 'gemini' ? process.env.GEMINI_API_KEY || '' : process.env.OPENAI_API_KEY || '').trim();
+}
+
+function envDefaultProvider() {
+  if (process.env.AI_PROVIDER) return configuredProvider(process.env.AI_PROVIDER);
+  if (process.env.GEMINI_API_KEY && !process.env.OPENAI_API_KEY) return 'gemini';
+  return 'gpt';
+}
+
 export function normalizeAiConfig(
   input?: string | AiConfig,
 ): Required<Pick<AiConfig, 'provider' | 'apiKey'>> & Pick<AiConfig, 'baseUrl' | 'model'> {
-  if (typeof input === 'string') return { provider: configuredProvider(input), apiKey: '' };
+  const userApiKey = typeof input === 'string' ? '' : String(input?.apiKey || '').trim();
+  let provider = configuredProvider(typeof input === 'string' ? input : input?.provider);
+  let apiKey = userApiKey;
+
+  if (!apiKey) {
+    const defaultProvider = envDefaultProvider();
+    const defaultKey = envApiKeyFor(defaultProvider);
+    if (defaultKey) {
+      provider = defaultProvider;
+      apiKey = defaultKey;
+    } else {
+      apiKey = envApiKeyFor(provider);
+    }
+  }
+
+  if (typeof input === 'string') return { provider, apiKey };
   return {
-    provider: configuredProvider(input?.provider),
-    apiKey: String(input?.apiKey || '').trim(),
+    provider,
+    apiKey,
     baseUrl: input?.baseUrl,
     model: input?.model,
   };

@@ -43,8 +43,15 @@ describe('app layout controls', () => {
     expect(source).not.toContain('AI 辅助猜动画名');
     expect(source).toContain('const gameEnded = computed(() => Boolean(revealedAnswer.value));');
     expect(source).toContain('const canPlay = computed(() => Boolean(sessionId.value) && !gameEnded.value);');
-    expect(source).toContain('<option value="china">国产</option>');
+    expect(source).toContain('<option value="china">中国</option>');
     expect(source).toContain('max-w-4xl space-y-3');
     expect(source).toContain('px-3 py-4 sm:px-4');
+  });
+
+  test('marks model API key as optional when server environment key is configured', () => {
+    const source = appVue();
+
+    expect(source).toContain('模型 API Key（可选，仅保存在本机浏览器 localStorage）');
+    expect(source).toContain('已配置服务端环境变量时可留空');
   });
 });

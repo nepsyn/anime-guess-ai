@@ -585,12 +585,12 @@ async function submitGuess(item = selected.value) {
           </select>
         </label>
         <label class="col-span-2"
-          >模型 API Key（仅保存在本机浏览器 localStorage）
+          >模型 API Key（可选，仅保存在本机浏览器 localStorage）
           <input
             v-model="modelApiKey"
             autocomplete="off"
             class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-            placeholder="输入当前模型提供商的 API Key"
+            placeholder="已配置服务端环境变量时可留空；填写后优先使用这里的 Key"
             type="password"
           />
         </label>

@@ -29,9 +29,9 @@ describe('normalizeFilters', () => {
     expect(result.rating).toEqual(['>=7', '<=8.5']);
   });
 
-  test('adds domestic country meta tag for Chinese anime', () => {
-    expect(normalizeFilters({ country: 'china' }).meta_tags).toEqual(['国产']);
-    expect(normalizeFilters({ country: '国产' }).meta_tags).toEqual(['国产']);
+  test('adds China country meta tag for Chinese anime', () => {
+    expect(normalizeFilters({ country: 'china' }).meta_tags).toEqual(['中国']);
+    expect(normalizeFilters({ country: '中国' }).meta_tags).toEqual(['中国']);
   });
 });
 
@@ -193,21 +193,48 @@ describe('buildHintDeck', () => {
     }
   });
 
-  test('does not use environment API keys when no user key is provided', async () => {
+  test('uses environment API key by default when no user key is provided', async () => {
     const oldFetch = globalThis.fetch;
     const oldProvider = process.env.AI_PROVIDER;
     const oldOpenAiKey = process.env.OPENAI_API_KEY;
     process.env.AI_PROVIDER = 'gpt';
-    process.env.OPENAI_API_KEY = 'env-key-should-not-be-used';
-    let called = false;
-    globalThis.fetch = async () => {
-      called = true;
-      return new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } });
+    process.env.OPENAI_API_KEY = 'env-default-key';
+    let authorization = '';
+    globalThis.fetch = async (_url, init) => {
+      authorization = String((init?.headers as Record<string, string>)?.authorization || '');
+      return new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  hints: [
+                    '1. 播出时间是「2014年4月」。',
+                    '2. 类型来源可关注「漫画改」。',
+                    '3. Bangumi 评分约「7.8」。',
+                    '4. 关键标签包括「战斗、奇幻」。',
+                    '5. 制作公司是「ufotable」。',
+                    '6. 动画导演是「测试监督」。',
+                    '7. 关键角色声优有「佐仓绫音」。',
+                    '8. 故事简介提到一段奇幻冒险。',
+                    '9. 主角名字可关注「测试主角」。',
+                    '10. 动画名称里带有「测」这个字。',
+                  ],
+                }),
+              },
+            },
+          ],
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
     };
 
     try {
-      await expect(buildHintDeck(sampleSubject)).rejects.toThrow('提示生成失败');
-      expect(called).toBe(false);
+      await buildHintDeck({
+        ...sampleSubject,
+        characters: [{ id: 10, name: '测试主角', relation: '主角', actors: [{ name: '佐仓绫音' }] }],
+      });
+      expect(authorization).toBe('Bearer env-default-key');
     } finally {
       globalThis.fetch = oldFetch;
       if (oldProvider === undefined) delete process.env.AI_PROVIDER;
@@ -239,6 +266,34 @@ describe('answerQuestion', () => {
       expect(authorization).toBe('Bearer user-key');
       expect(result.answer).toBe('是');
       expect(result.reason).toBe('');
+    } finally {
+      globalThis.fetch = oldFetch;
+      if (oldProvider === undefined) delete process.env.AI_PROVIDER;
+      else process.env.AI_PROVIDER = oldProvider;
+      if (oldOpenAiKey === undefined) delete process.env.OPENAI_API_KEY;
+      else process.env.OPENAI_API_KEY = oldOpenAiKey;
+    }
+  });
+
+  test('uses environment API key by default for questions when no user key is provided', async () => {
+    const oldFetch = globalThis.fetch;
+    const oldProvider = process.env.AI_PROVIDER;
+    const oldOpenAiKey = process.env.OPENAI_API_KEY;
+    process.env.AI_PROVIDER = 'gpt';
+    process.env.OPENAI_API_KEY = 'env-question-key';
+    let authorization = '';
+    globalThis.fetch = async (_url, init) => {
+      authorization = String((init?.headers as Record<string, string>)?.authorization || '');
+      return new Response(
+        JSON.stringify({ choices: [{ message: { content: JSON.stringify({ answer: '不是' }) } }] }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
+    };
+
+    try {
+      const result = await answerQuestion(sampleSubject, '它是剧场版吗？');
+      expect(authorization).toBe('Bearer env-question-key');
+      expect(result.answer).toBe('不是');
     } finally {
       globalThis.fetch = oldFetch;
       if (oldProvider === undefined) delete process.env.AI_PROVIDER;
