@@ -13,6 +13,9 @@ const filters = reactive({
   ratingMax: 10
 })
 const provider = ref<'gpt' | 'gemini'>('gpt')
+const modelApiKey = ref('')
+const modelName = ref('')
+const openAiBaseUrl = ref('')
 const sessionId = ref('')
 const loading = ref(false)
 const settingsOpen = ref(false)
@@ -21,6 +24,7 @@ const guessText = ref('')
 const searchResults = ref<SearchResult[]>([])
 const selected = ref<SearchResult | null>(null)
 const revealedAnswer = ref<Answer | null>(null)
+const correctDialog = ref<{ answer: Answer; score: number; message: string } | null>(null)
 const remainingHints = ref(0)
 const totalHints = ref(10)
 const score = ref(0)
@@ -28,6 +32,50 @@ const chat = ref<ChatItem[]>([
   { role: 'system', text: '设置筛选条件后开始游戏。AI 会从 Bangumi 随机挑一部动画，你可以问是/不是/不确定问题。' }
 ])
 let searchTimer: ReturnType<typeof setTimeout> | null = null
+const SETTINGS_STORAGE_KEY = 'anime-guess-ai:game-settings'
+
+function aiConfig() {
+  return {
+    provider: provider.value,
+    apiKey: modelApiKey.value.trim(),
+    model: modelName.value.trim(),
+    baseUrl: provider.value === 'gpt' ? openAiBaseUrl.value.trim() : ''
+  }
+}
+
+function settingsSnapshot() {
+  return {
+    filters: { ...filters },
+    provider: provider.value,
+    modelApiKey: modelApiKey.value,
+    modelName: modelName.value,
+    openAiBaseUrl: openAiBaseUrl.value
+  }
+}
+
+function loadSettings() {
+  if (!import.meta.client) return
+  try {
+    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY)
+    if (!raw) return
+    const saved = JSON.parse(raw)
+    if (saved?.filters && typeof saved.filters === 'object') Object.assign(filters, saved.filters)
+    if (saved?.provider === 'gpt' || saved?.provider === 'gemini') provider.value = saved.provider
+    modelApiKey.value = String(saved?.modelApiKey || '')
+    modelName.value = String(saved?.modelName || '')
+    openAiBaseUrl.value = String(saved?.openAiBaseUrl || '')
+  } catch {
+    // 忽略损坏的本地设置
+  }
+}
+
+function saveSettings() {
+  if (!import.meta.client) return
+  localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settingsSnapshot()))
+}
+
+onMounted(loadSettings)
+watch(settingsSnapshot, saveSettings, { deep: true })
 
 const canPlay = computed(() => Boolean(sessionId.value))
 const canHint = computed(() => canPlay.value && remainingHints.value > 0)
@@ -69,12 +117,26 @@ function reveal(answer: Answer, prefix = '答案') {
   push({ role: 'system', text: `${prefix}：${answerTitle(answer)}（Bangumi #${answer.id}）`, tone: 'ok' })
 }
 
+function showCorrectDialog(answer: Answer, message: string) {
+  correctDialog.value = { answer, score: score.value, message }
+}
+
+function closeCorrectDialog() {
+  correctDialog.value = null
+}
+
+async function startNextGame() {
+  closeCorrectDialog()
+  await startGame()
+}
+
 async function startGame() {
   loading.value = true
   try {
-    const res = await $fetch<{ sessionId: string; message: string; initialHint?: string; remainingHints: number; totalHints: number; score: number }>('/api/game/start', { method: 'POST', body: { filters, provider: provider.value } })
+    const res = await $fetch<{ sessionId: string; message: string; initialHint?: string; remainingHints: number; totalHints: number; score: number }>('/api/game/start', { method: 'POST', body: { filters, provider: provider.value, aiConfig: aiConfig() } })
     sessionId.value = res.sessionId
     revealedAnswer.value = null
+    correctDialog.value = null
     remainingHints.value = res.remainingHints
     totalHints.value = res.totalHints
     score.value = res.score
@@ -98,9 +160,9 @@ async function ask() {
   push({ role: 'player', text: q })
   loading.value = true
   try {
-    const res = await $fetch<{ answer: string; reason: string; score: number }>('/api/game/ask', { method: 'POST', body: { sessionId: sessionId.value, question: q, provider: provider.value } })
+    const res = await $fetch<{ answer: string; reason: string; score: number }>('/api/game/ask', { method: 'POST', body: { sessionId: sessionId.value, question: q, provider: provider.value, aiConfig: aiConfig() } })
     score.value = res.score
-    push({ role: 'ai', text: `${res.answer}${res.reason ? `：${res.reason}` : ''}`, tone: res.answer === '是' ? 'ok' : res.answer === '不是' ? 'bad' : 'info' })
+    push({ role: 'ai', text: res.answer, tone: res.answer === '是' ? 'ok' : res.answer === '不是' ? 'bad' : 'info' })
   } catch (err: any) {
     push({ role: 'system', text: err?.data?.message || err?.message || 'AI 回答失败', tone: 'bad' })
   } finally {
@@ -167,6 +229,7 @@ async function submitGuess(item = selected.value) {
     clearGuessSearch()
     if (res.correct && res.answer) {
       reveal(res.answer, `🎉 ${res.message} 答案`)
+      showCorrectDialog(res.answer, res.message)
     } else {
       push({ role: 'system', text: res.message, tone: 'bad' })
     }
@@ -258,6 +321,31 @@ async function submitGuess(item = selected.value) {
       </section>
     </div>
 
+    <div v-if="correctDialog" class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/50 px-4 backdrop-blur-sm" @click.self="closeCorrectDialog">
+      <section class="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-emerald-100">
+        <div class="bg-gradient-to-r from-emerald-500 to-indigo-500 px-6 py-5 text-white">
+          <p class="text-sm font-semibold opacity-90">{{ correctDialog.message }}</p>
+          <h2 class="mt-1 text-2xl font-bold">回答正确！</h2>
+        </div>
+        <div class="p-6">
+          <div class="flex gap-4">
+            <img v-if="correctDialog.answer.image" :src="correctDialog.answer.image" class="h-44 w-32 rounded-2xl object-cover shadow" />
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-medium text-slate-500">正确答案</p>
+              <p class="mt-1 text-2xl font-bold leading-tight text-slate-950">{{ answerTitle(correctDialog.answer) }}</p>
+              <p v-if="correctDialog.answer.name_cn && correctDialog.answer.name_cn !== correctDialog.answer.name" class="mt-2 text-sm text-slate-600">{{ correctDialog.answer.name }}</p>
+              <a :href="correctDialog.answer.url" target="_blank" class="mt-4 inline-block rounded-full bg-indigo-50 px-3 py-1 text-sm font-medium text-indigo-600">Bangumi #{{ correctDialog.answer.id }}</a>
+              <p class="mt-4 rounded-2xl bg-emerald-50 px-4 py-3 font-semibold text-emerald-700">本局得分：<span class="text-2xl">{{ correctDialog.score }}</span> / 20</p>
+            </div>
+          </div>
+          <div class="mt-6 grid grid-cols-2 gap-3">
+            <button :disabled="loading" class="rounded-2xl bg-indigo-600 px-4 py-3 font-semibold text-white shadow-lg shadow-indigo-100 hover:bg-indigo-500 disabled:opacity-50" @click="startNextGame">开启新一局</button>
+            <button class="rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-700 shadow-sm hover:bg-slate-50" @click="closeCorrectDialog">关闭</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
     <div v-if="settingsOpen" class="fixed inset-0 z-40 bg-slate-950/30 backdrop-blur-sm" @click="settingsOpen = false"></div>
     <aside class="fixed right-0 top-0 z-50 h-full w-full max-w-md transform overflow-y-auto bg-white p-6 shadow-2xl transition-transform duration-200" :class="settingsOpen ? 'translate-x-0' : 'translate-x-full'">
       <div class="flex items-center justify-between">
@@ -286,6 +374,15 @@ async function submitGuess(item = selected.value) {
           <select v-model="provider" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
             <option value="gpt">GPT / OpenAI-compatible</option><option value="gemini">Gemini</option>
           </select>
+        </label>
+        <label class="col-span-2">模型 API Key（仅保存在本机浏览器 localStorage）
+          <input v-model="modelApiKey" autocomplete="off" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" placeholder="输入当前模型提供商的 API Key" type="password" />
+        </label>
+        <label class="col-span-2">模型名称（可选）
+          <input v-model="modelName" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" :placeholder="provider === 'gemini' ? '默认 gemini-2.5-flash' : '默认 gpt-4o-mini'" />
+        </label>
+        <label v-if="provider === 'gpt'" class="col-span-2">OpenAI-compatible Base URL（可选）
+          <input v-model="openAiBaseUrl" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" placeholder="默认 https://api.openai.com/v1" />
         </label>
       </div>
 

@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { normalizeFilters, isCorrectGuess, pickHint, buildHintDeck, HINT_LIMIT, deductScore } from '../server/utils/game'
+import { normalizeFilters, isCorrectGuess, pickHint, buildHintDeck, HINT_LIMIT, deductScore, hintResponseFromUsedCount } from '../server/utils/game'
+import { answerQuestion } from '../server/utils/ai'
 
 describe('normalizeFilters', () => {
   test('maps player filters to Bangumi search filter shape', () => {
@@ -38,6 +39,19 @@ describe('deductScore', () => {
   })
 })
 
+describe('hintResponseFromUsedCount', () => {
+  test('keeps the final hint visible when it consumes the last remaining use', () => {
+    const finalHint = hintResponseFromUsedCount('最后一条提示', HINT_LIMIT)
+
+    expect(finalHint.hint).toBe('最后一条提示')
+    expect(finalHint.remainingHints).toBe(0)
+    expect(finalHint.exhausted).toBe(false)
+
+    const noHint = hintResponseFromUsedCount('', HINT_LIMIT)
+    expect(noHint.exhausted).toBe(true)
+  })
+})
+
 const sampleSubject = {
   id: 1,
   name: 'test',
@@ -72,32 +86,37 @@ describe('buildHintDeck', () => {
     const oldFetch = globalThis.fetch
     const oldProvider = process.env.AI_PROVIDER
     const oldKey = process.env.OPENAI_API_KEY
-    process.env.AI_PROVIDER = 'gpt'
-    process.env.OPENAI_API_KEY = 'test-key'
-    globalThis.fetch = async () => new Response(JSON.stringify({
-      choices: [{
-        message: {
-          content: JSON.stringify({
-            hints: [
-              '这条包含测试动画标题应被过滤',
-              '它是「2014年」开播的日本电视动画。',
-              '故事有明显的「战斗」与奇幻要素。',
-              '动画制作信息中可以关注「ufotable」。',
-              '主创名单里出现过「测试监督」。',
-              '音乐相关信息里出现「梶浦由记」。',
-              '声演名单里可以关注「佐仓绫音」。',
-              '声演名单里还可以关注「花泽香菜」。',
-              'Bangumi 评分大约在「7分」以上。',
-              '主题歌相关信息里出现「Aimer」。',
-              '它的核心气质更接近热血冒险。'
-            ]
-          })
-        }
-      }]
-    }), { status: 200, headers: { 'content-type': 'application/json' } })
+    process.env.AI_PROVIDER = 'gemini'
+    delete process.env.OPENAI_API_KEY
+    let authorization = ''
+    globalThis.fetch = async (_url, init) => {
+      authorization = String((init?.headers as Record<string, string>)?.authorization || '')
+      return new Response(JSON.stringify({
+        choices: [{
+          message: {
+            content: JSON.stringify({
+              hints: [
+                '这条包含测试动画标题应被过滤',
+                '它是「2014年」开播的日本电视动画。',
+                '故事有明显的「战斗」与奇幻要素。',
+                '动画制作信息中可以关注「ufotable」。',
+                '主创名单里出现过「测试监督」。',
+                '音乐相关信息里出现「梶浦由记」。',
+                '声演名单里可以关注「佐仓绫音」。',
+                '声演名单里还可以关注「花泽香菜」。',
+                'Bangumi 评分大约在「7分」以上。',
+                '主题歌相关信息里出现「Aimer」。',
+                '它的核心气质更接近热血冒险。'
+              ]
+            })
+          }
+        }]
+      }), { status: 200, headers: { 'content-type': 'application/json' } })
+    }
 
     try {
-      const deck = await buildHintDeck(sampleSubject)
+      const deck = await buildHintDeck(sampleSubject, { provider: 'gpt', apiKey: 'user-key' })
+      expect(authorization).toBe('Bearer user-key')
       expect(deck).toHaveLength(HINT_LIMIT)
       expect(deck[0]).toBe('它是「2014年」开播的日本电视动画。')
       expect(new Set(deck).size).toBe(HINT_LIMIT)
@@ -131,6 +150,59 @@ describe('buildHintDeck', () => {
       else process.env.AI_PROVIDER = oldProvider
       if (oldOpenAiKey !== undefined) process.env.OPENAI_API_KEY = oldOpenAiKey
       if (oldGeminiKey !== undefined) process.env.GEMINI_API_KEY = oldGeminiKey
+    }
+  })
+
+  test('does not use environment API keys when no user key is provided', async () => {
+    const oldFetch = globalThis.fetch
+    const oldProvider = process.env.AI_PROVIDER
+    const oldOpenAiKey = process.env.OPENAI_API_KEY
+    process.env.AI_PROVIDER = 'gpt'
+    process.env.OPENAI_API_KEY = 'env-key-should-not-be-used'
+    let called = false
+    globalThis.fetch = async () => {
+      called = true
+      return new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } })
+    }
+
+    try {
+      const deck = await buildHintDeck(sampleSubject)
+      expect(called).toBe(false)
+      expect(deck).toHaveLength(HINT_LIMIT)
+    } finally {
+      globalThis.fetch = oldFetch
+      if (oldProvider === undefined) delete process.env.AI_PROVIDER
+      else process.env.AI_PROVIDER = oldProvider
+      if (oldOpenAiKey === undefined) delete process.env.OPENAI_API_KEY
+      else process.env.OPENAI_API_KEY = oldOpenAiKey
+    }
+  })
+})
+
+describe('answerQuestion', () => {
+  test('uses user-provided API key instead of environment variables', async () => {
+    const oldFetch = globalThis.fetch
+    const oldProvider = process.env.AI_PROVIDER
+    const oldOpenAiKey = process.env.OPENAI_API_KEY
+    process.env.AI_PROVIDER = 'gemini'
+    delete process.env.OPENAI_API_KEY
+    let authorization = ''
+    globalThis.fetch = async (_url, init) => {
+      authorization = String((init?.headers as Record<string, string>)?.authorization || '')
+      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ answer: '是', reason: '测试原因' }) } }] }), { status: 200, headers: { 'content-type': 'application/json' } })
+    }
+
+    try {
+      const result = await answerQuestion(sampleSubject, '它是动画吗？', { provider: 'gpt', apiKey: 'user-key' })
+      expect(authorization).toBe('Bearer user-key')
+      expect(result.answer).toBe('是')
+      expect(result.reason).toBe('')
+    } finally {
+      globalThis.fetch = oldFetch
+      if (oldProvider === undefined) delete process.env.AI_PROVIDER
+      else process.env.AI_PROVIDER = oldProvider
+      if (oldOpenAiKey === undefined) delete process.env.OPENAI_API_KEY
+      else process.env.OPENAI_API_KEY = oldOpenAiKey
     }
   })
 })

@@ -6,7 +6,7 @@
 
 - 从玩家预设筛选条件中随机抽取 Bangumi 动画条目
 - 使用 Bangumi 公共 API 获取条目、关联条目和搜索结果
-- 使用 Bun SQL / SQLite 持久化缓存条目信息，默认 7 天过期
+- 使用 Bun SQL / PostgreSQL 持久化缓存条目信息，默认 7 天过期
 - 玩家可向 AI 提问，AI 只回答「是 / 不是 / 不确定」
 - 玩家可索取提示，提示从已缓存 Bangumi 资料生成
 - 玩家输入动画名时同步搜索 Bangumi，最终按 subject id 判断
@@ -32,7 +32,7 @@ cp .env.example .env
 HOST=127.0.0.1
 PORT=3010
 NITRO_PORT=3010
-DB_PATH=/root/work/anime-guess-ai/data/anime-guess.sqlite
+DATABASE_URL=postgres://anime_user:password@127.0.0.1:5432/anime_guess
 
 BANGUMI_TOKEN=
 BANGUMI_USER_AGENT=anime-guess-ai/0.1 (https://github.com/nepsyn/anime-guess-ai)
@@ -83,7 +83,7 @@ server/api/game/guess.post.ts      提交答案
 server/api/bangumi/search.get.ts   Bangumi 搜索
 server/utils/bangumi.ts            Bangumi API 封装
 server/utils/ai.ts                 GPT / Gemini 调用
-server/utils/db.ts                 Bun SQL / SQLite
+server/utils/db.ts                 Bun SQL / PostgreSQL
 server/utils/game.ts               游戏规则工具函数
 tests/game-utils.test.ts           核心逻辑测试
 ```

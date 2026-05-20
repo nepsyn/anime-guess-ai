@@ -22,7 +22,8 @@ export default defineEventHandler(async (event) => {
   } else {
     subject = JSON.parse(cached[0].payload)
   }
-  const hintDeck = await buildHintDeck(subject, body?.provider)
+  const aiConfig = { provider: body?.provider, ...(body?.aiConfig || {}) }
+  const hintDeck = await buildHintDeck(subject, aiConfig)
   const initialHint = hintDeck[0]
   const sessionId = crypto.randomUUID()
   await db`INSERT INTO games (id, subject_id, filters, used_hints, hint_deck, asked, score, created_at, updated_at)

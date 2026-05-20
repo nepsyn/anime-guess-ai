@@ -11,7 +11,7 @@ export default defineEventHandler(async (event) => {
   const rows = await db`SELECT g.asked, g.score, s.payload FROM games g JOIN subjects s ON s.id = g.subject_id WHERE g.id = ${sessionId} LIMIT 1`
   if (!rows.length) throw createError({ statusCode: 404, statusMessage: '游戏不存在或已过期' })
   const subject = JSON.parse(rows[0].payload)
-  const result = await answerQuestion(subject, question, body?.provider)
+  const result = await answerQuestion(subject, question, { provider: body?.provider, ...(body?.aiConfig || {}) })
   const asked = JSON.parse(rows[0].asked || '[]')
   const score = deductScore(Number(rows[0].score), QUESTION_COST)
   asked.push({ question, ...result, score, at: Date.now() })

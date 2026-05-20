@@ -1,38 +1,55 @@
 import { SQL } from 'bun'
-import { mkdirSync } from 'node:fs'
-import { dirname, join } from 'node:path'
 
-const dbPath = process.env.DB_PATH || join(process.cwd(), 'data', 'anime-guess.sqlite')
-mkdirSync(dirname(dbPath), { recursive: true })
-
-export const db = new SQL({ adapter: 'sqlite', filename: dbPath })
-
+let sqlClient: any | null = null
 let initialized = false
+
+export function getDatabaseUrl() {
+  const url = String(process.env.DATABASE_URL || '').trim()
+  if (!url) throw new Error('DATABASE_URL is required for PostgreSQL database connection')
+  return url
+}
+
+function getDb() {
+  if (!sqlClient) sqlClient = new SQL(getDatabaseUrl())
+  return sqlClient
+}
+
+export const db = new Proxy(function sqlTag() {}, {
+  apply(_target, _thisArg, args) {
+    return Reflect.apply(getDb(), undefined, args)
+  },
+  get(_target, prop) {
+    const value = getDb()[prop]
+    return typeof value === 'function' ? value.bind(getDb()) : value
+  }
+}) as any
 
 export async function initDb() {
   if (initialized) return
-  await db`PRAGMA journal_mode = WAL`
   await db`CREATE TABLE IF NOT EXISTS subjects (
     id INTEGER PRIMARY KEY,
     payload TEXT NOT NULL,
     related_ids TEXT NOT NULL DEFAULT '[]',
-    fetched_at INTEGER NOT NULL,
-    expires_at INTEGER NOT NULL
+    fetched_at BIGINT NOT NULL,
+    expires_at BIGINT NOT NULL
   )`
   await db`CREATE TABLE IF NOT EXISTS games (
     id TEXT PRIMARY KEY,
-    subject_id INTEGER NOT NULL,
+    subject_id INTEGER NOT NULL REFERENCES subjects(id),
     filters TEXT NOT NULL,
     used_hints TEXT NOT NULL DEFAULT '[]',
     hint_deck TEXT NOT NULL DEFAULT '[]',
     asked TEXT NOT NULL DEFAULT '[]',
     score INTEGER NOT NULL DEFAULT 20,
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL,
-    FOREIGN KEY(subject_id) REFERENCES subjects(id)
+    created_at BIGINT NOT NULL,
+    updated_at BIGINT NOT NULL
   )`
+  try { await db`ALTER TABLE subjects ALTER COLUMN fetched_at TYPE BIGINT` } catch {}
+  try { await db`ALTER TABLE subjects ALTER COLUMN expires_at TYPE BIGINT` } catch {}
   try { await db`ALTER TABLE games ADD COLUMN hint_deck TEXT NOT NULL DEFAULT '[]'` } catch {}
   try { await db`ALTER TABLE games ADD COLUMN score INTEGER NOT NULL DEFAULT 20` } catch {}
+  try { await db`ALTER TABLE games ALTER COLUMN created_at TYPE BIGINT` } catch {}
+  try { await db`ALTER TABLE games ALTER COLUMN updated_at TYPE BIGINT` } catch {}
   initialized = true
 }
 

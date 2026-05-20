@@ -1,3 +1,6 @@
+export type AiProvider = 'gpt' | 'gemini'
+export type AiConfig = { provider?: string; apiKey?: string; baseUrl?: string; model?: string }
+
 export const HINT_LIMIT = 10
 export const INITIAL_SCORE = 20
 export const QUESTION_COST = 1
@@ -228,26 +231,45 @@ export function buildFallbackHintDeck(subject: any) {
   return unique.slice(0, HINT_LIMIT)
 }
 
-type AiProvider = 'gpt' | 'gemini'
+export function hintResponseFromUsedCount(hint: string, usedCount: number, score = 0) {
+  const remainingHints = Math.max(0, HINT_LIMIT - usedCount)
+  return {
+    hint,
+    remainingHints,
+    totalHints: HINT_LIMIT,
+    exhausted: !hint && remainingHints === 0,
+    score
+  }
+}
 
 function configuredProvider(input?: string): AiProvider {
-  const p = String(input || process.env.AI_PROVIDER || 'gpt').toLowerCase()
+  const p = String(input || 'gpt').toLowerCase()
   return p.includes('gemini') ? 'gemini' : 'gpt'
 }
 
-async function callHintAiJson(prompt: string, provider?: string) {
-  const p = configuredProvider(provider)
-  if (p === 'gemini' && process.env.GEMINI_API_KEY) return callGeminiHintJson(prompt)
-  if (p === 'gpt' && process.env.OPENAI_API_KEY) return callOpenAiHintJson(prompt)
-  throw new Error('未配置提示生成模型 API Key')
+function normalizeAiConfig(input?: string | AiConfig): Required<Pick<AiConfig, 'provider' | 'apiKey'>> & Pick<AiConfig, 'baseUrl' | 'model'> {
+  if (typeof input === 'string') return { provider: configuredProvider(input), apiKey: '' }
+  return {
+    provider: configuredProvider(input?.provider),
+    apiKey: String(input?.apiKey || '').trim(),
+    baseUrl: input?.baseUrl,
+    model: input?.model
+  }
 }
 
-async function callOpenAiHintJson(prompt: string) {
-  const base = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1'
-  const model = process.env.OPENAI_MODEL || 'gpt-4o-mini'
+async function callHintAiJson(prompt: string, config?: string | AiConfig) {
+  const ai = normalizeAiConfig(config)
+  if (!ai.apiKey) throw new Error('未配置提示生成模型 API Key')
+  if (ai.provider === 'gemini') return callGeminiHintJson(prompt, ai)
+  return callOpenAiHintJson(prompt, ai)
+}
+
+async function callOpenAiHintJson(prompt: string, config: Required<Pick<AiConfig, 'apiKey'>> & Pick<AiConfig, 'baseUrl' | 'model'>) {
+  const base = config.baseUrl || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1'
+  const model = config.model || process.env.OPENAI_MODEL || 'gpt-4o-mini'
   const res = await fetch(`${base.replace(/\/$/, '')}/chat/completions`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${config.apiKey}` },
     body: JSON.stringify({
       model,
       response_format: { type: 'json_object' },
@@ -260,10 +282,10 @@ async function callOpenAiHintJson(prompt: string) {
   return parseHintJson(data?.choices?.[0]?.message?.content)
 }
 
-async function callGeminiHintJson(prompt: string) {
-  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
+async function callGeminiHintJson(prompt: string, config: Required<Pick<AiConfig, 'apiKey'>> & Pick<AiConfig, 'model'>) {
+  const model = config.model || process.env.GEMINI_MODEL || 'gemini-2.5-flash'
   const url = new URL(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`)
-  url.searchParams.set('key', process.env.GEMINI_API_KEY || '')
+  url.searchParams.set('key', config.apiKey)
   const res = await fetch(url.toString(), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -306,7 +328,7 @@ function normalizeHintArray(input: any, subject: any) {
   return result
 }
 
-export async function buildHintDeck(subject: any, provider?: string) {
+export async function buildHintDeck(subject: any, config?: string | AiConfig) {
   const prompt = `你在主持一个猜动画名游戏。请基于 Bangumi 资料，为答案动画生成 10 条从宽泛到核心、但不直接泄露答案的中文提示。
 严格规则：
 - 只能输出 JSON：{"hints":["提示1",...,"提示10"]}
@@ -321,7 +343,7 @@ export async function buildHintDeck(subject: any, provider?: string) {
 Bangumi资料：${JSON.stringify(compactSubjectForAi(subject)).slice(0, 12000)}`
 
   try {
-    const parsed = await callHintAiJson(prompt, provider)
+    const parsed = await callHintAiJson(prompt, config)
     const hints = normalizeHintArray(parsed?.hints, subject)
     if (hints.length === HINT_LIMIT) return hints
   } catch {

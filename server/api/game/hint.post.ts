@@ -1,5 +1,5 @@
 import { db, initDb } from '../../utils/db'
-import { deductScore, HINT_COST, HINT_LIMIT, pickHint } from '../../utils/game'
+import { deductScore, HINT_COST, HINT_LIMIT, hintResponseFromUsedCount, pickHint } from '../../utils/game'
 
 export default defineEventHandler(async (event) => {
   await initDb()
@@ -18,5 +18,5 @@ export default defineEventHandler(async (event) => {
   used.push(hint)
   const score = deductScore(Number(rows[0].score), HINT_COST)
   await db`UPDATE games SET used_hints = ${JSON.stringify(used)}, score = ${score}, updated_at = ${Date.now()} WHERE id = ${sessionId}`
-  return { hint, remainingHints: Math.max(0, HINT_LIMIT - used.length), totalHints: HINT_LIMIT, exhausted: used.length >= HINT_LIMIT, score }
+  return hintResponseFromUsedCount(hint, used.length, score)
 })
