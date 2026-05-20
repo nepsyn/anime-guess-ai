@@ -19,7 +19,7 @@ describe('app shell metadata', () => {
     expect(favicon.length).toBeGreaterThan(100);
   });
 
-  test('loads Umami through @nuxt/scripts using public environment variables', () => {
+  test('loads Umami through @nuxt/scripts using configurable environment variables', () => {
     const config = read('nuxt.config.ts');
     const pkg = JSON.parse(read('package.json'));
     const envExample = read('.env.example');
@@ -27,16 +27,19 @@ describe('app shell metadata', () => {
     expect(pkg.dependencies).toHaveProperty('@nuxt/scripts');
     expect(config).toContain("'@nuxt/scripts'");
     expect(config).toContain('umami: {');
-    expect(config).toContain('websiteId: process.env.NUXT_PUBLIC_UMAMI_WEBSITE_ID ||');
-    expect(config).toContain('hostUrl: process.env.NUXT_PUBLIC_UMAMI_HOST_URL ||');
+    expect(config).toContain('process.env.UMAMI_WEBSITE_ID || process.env.NUXT_PUBLIC_UMAMI_WEBSITE_ID ||');
+    expect(config).toContain('process.env.UMAMI_HOST_URL || process.env.NUXT_PUBLIC_UMAMI_HOST_URL ||');
 
-    expect(exists('plugins/umami.client.ts')).toBe(true);
-    const plugin = read('plugins/umami.client.ts');
+    expect(exists('app/plugins/umami.client.ts')).toBe(true);
+    expect(exists('plugins/umami.client.ts')).toBe(false);
+    const plugin = read('app/plugins/umami.client.ts');
     expect(plugin).toContain('useScriptUmamiAnalytics');
     expect(plugin).toContain('config.public.umami.websiteId');
     expect(plugin).toContain('config.public.umami.hostUrl');
     expect(plugin).toContain("trigger: 'onNuxtReady'");
 
+    expect(envExample).toContain('UMAMI_HOST_URL=');
+    expect(envExample).toContain('UMAMI_WEBSITE_ID=');
     expect(envExample).toContain('NUXT_PUBLIC_UMAMI_HOST_URL=');
     expect(envExample).toContain('NUXT_PUBLIC_UMAMI_WEBSITE_ID=');
   });
