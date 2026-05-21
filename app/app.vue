@@ -57,6 +57,7 @@ const chat = ref<ChatItem[]>([
   { role: 'system', text: '设置筛选条件后开始游戏。AI 会从 Bangumi 随机挑一部动画，你可以问 AI 关于此动画的问题，AI 会回答是/不是/不确定。' },
 ]);
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
+let settingsHistoryPushed = false;
 const SETTINGS_STORAGE_KEY = 'anime-guess-ai:game-settings';
 const HISTORY_STORAGE_KEY = 'anime-guess-ai:game-history';
 const QUESTION_HISTORY_STORAGE_KEY = 'anime-guess-ai:question-history';
@@ -113,8 +114,29 @@ function saveSettings() {
   localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settingsSnapshot()));
 }
 
+function openSettings() {
+  settingsOpen.value = true;
+  if (!import.meta.client || settingsHistoryPushed) return;
+  history.pushState({ ...(history.state || {}), animeGuessSettingsOpen: true }, '');
+  settingsHistoryPushed = true;
+}
+
+function closeSettings(options: { fromPopstate?: boolean } = {}) {
+  settingsOpen.value = false;
+  if (!import.meta.client || !settingsHistoryPushed) return;
+  settingsHistoryPushed = false;
+  if (!options.fromPopstate && history.state?.animeGuessSettingsOpen) history.back();
+}
+
+function handleSettingsPopstate() {
+  if (!settingsOpen.value) return;
+  closeSettings({ fromPopstate: true });
+}
+
 onMounted(loadSettings);
 onMounted(loadQuestionHistory);
+onMounted(() => window.addEventListener('popstate', handleSettingsPopstate));
+onBeforeUnmount(() => window.removeEventListener('popstate', handleSettingsPopstate));
 watch(settingsSnapshot, saveSettings, { deep: true });
 
 const gameEnded = computed(() => Boolean(revealedAnswer.value));
@@ -259,7 +281,7 @@ async function startGame() {
     remainingHints.value = res.remainingHints;
     totalHints.value = res.totalHints;
     score.value = res.score;
-    settingsOpen.value = false;
+    closeSettings();
     clearGuessSearch();
     chat.value = [
       ...(res.initialHint
@@ -370,13 +392,13 @@ async function submitGuess(item = selected.value) {
       similarities?: SimilarityHint[];
     }>('/api/game/guess', { method: 'POST', body: { sessionId: sessionId.value, subjectId: item.id } });
     score.value = res.score;
-    push({ role: 'player', text: '我猜是：', boldText: guessedTitle, image: item.image, link: `https://bgm.tv/subject/${item.id}` });
+    push({ role: 'player', text: '我猜是：', boldText: guessedTitle, image: item.image, link: `https://bgm.tv/subject/${item.id}`, similarities: res.similarities?.length ? res.similarities : undefined });
     clearGuessSearch();
     if (res.correct && res.answer) {
       reveal(res.answer, `🎉 ${res.message} 答案`);
       showCorrectDialog(res.answer, res.message);
     } else {
-      push({ role: 'system', text: res.message, tone: 'bad', similarities: res.similarities?.length ? res.similarities : undefined });
+      push({ role: 'system', text: res.message, tone: 'bad' });
     }
   } catch (err: any) {
     push({ role: 'system', text: errorMessage(err, '提交答案失败'), tone: 'bad' });
@@ -392,20 +414,20 @@ async function submitGuess(item = selected.value) {
   >
     <div class="mx-auto max-w-4xl space-y-3">
       <section class="glass rounded-3xl px-3 py-4 sm:px-4">
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p class="text-xs font-medium text-indigo-600">Anime Guess！</p>
-            <h1 class="mt-1 text-2xl font-bold text-slate-950 sm:text-3xl">二次元婆罗门猜猜乐</h1>
+        <div>
+          <p class="text-xs font-medium text-indigo-600">Anime Guess！</p>
+          <div class="mt-1 flex items-center justify-between gap-3">
+            <h1 class="min-w-0 text-2xl font-bold text-slate-950 sm:text-3xl">二次元婆罗门猜猜乐</h1>
+            <a
+              :href="GITHUB_URL"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="在 GitHub 查看项目"
+              class="inline-flex h-9 w-9 shrink-0 items-center justify-center gap-1 rounded-full border border-slate-200 bg-white px-0 text-xs font-semibold text-slate-700 shadow-sm hover:border-indigo-200 hover:bg-indigo-50 sm:w-auto sm:px-3"
+            >
+              <i class="fa-brands fa-github"></i><span class="sr-only sm:not-sr-only">GitHub</span>
+            </a>
           </div>
-          <a
-            :href="GITHUB_URL"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="在 GitHub 查看项目"
-            class="inline-flex h-9 shrink-0 items-center justify-center gap-1 rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm hover:border-indigo-200 hover:bg-indigo-50"
-          >
-            <i class="fa-brands fa-github"></i>GitHub
-          </a>
         </div>
         <p class="mt-2 max-w-3xl text-xs leading-5 text-slate-600 sm:text-sm">
           AI 根据你的筛选条件或 Bangumi 看过收藏随机抽取动画。开局会给出初始提示；每局共 10
@@ -426,7 +448,7 @@ async function submitGuess(item = selected.value) {
           <button
             class="flex h-10 min-w-[96px] items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:border-indigo-200 hover:bg-indigo-50"
             title="设置筛选条件"
-            @click="settingsOpen = true"
+            @click="openSettings"
           >
             <i class="fa-solid fa-gear mr-2"></i>设置
           </button>
@@ -697,7 +719,7 @@ async function submitGuess(item = selected.value) {
     <div
       v-if="settingsOpen"
       class="fixed inset-0 z-40 bg-slate-950/30 backdrop-blur-sm"
-      @click="settingsOpen = false"
+      @click="closeSettings()"
     ></div>
     <aside
       class="fixed right-0 top-0 z-50 h-full w-full max-w-md transform overflow-y-auto bg-white p-6 shadow-2xl transition-transform duration-200"
@@ -705,7 +727,7 @@ async function submitGuess(item = selected.value) {
     >
       <div class="flex items-center justify-between">
         <h2 class="text-xl font-bold text-slate-950"><i class="fa-solid fa-gear mr-2 text-indigo-600"></i>游戏设置</h2>
-        <button class="rounded-full p-2 text-slate-500 hover:bg-slate-100" @click="settingsOpen = false">
+        <button class="rounded-full p-2 text-slate-500 hover:bg-slate-100" @click="closeSettings()">
           <i class="fa-solid fa-xmark text-xl"></i>
         </button>
       </div>

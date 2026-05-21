@@ -10,8 +10,8 @@ describe('app layout controls', () => {
     const heroControls = source.match(/<div class="mt-3 flex flex-wrap items-center gap-2[\s\S]*?<\/div>/)?.[0] || '';
 
     expect(heroControls).toContain('@click="startGame"');
-    expect(heroControls).toContain('@click="settingsOpen = true"');
-    expect(heroControls.indexOf('@click="settingsOpen = true"')).toBeGreaterThan(
+    expect(heroControls).toContain('@click="openSettings"');
+    expect(heroControls.indexOf('@click="openSettings"')).toBeGreaterThan(
       heroControls.indexOf('@click="startGame"'),
     );
   });
@@ -138,7 +138,7 @@ describe('app layout controls', () => {
     expect(source).toContain('bangumiUid: filters.bangumiUid');
   });
 
-  test('shows wrong-guess overlap tags without revealing the answer', () => {
+  test('shows wrong-guess overlap tags on the player guess record without revealing the answer', () => {
     const source = appVue();
 
     expect(source).toContain('type SimilarityHint');
@@ -150,6 +150,9 @@ describe('app layout controls', () => {
     expect(source).toContain('共同参与配音的声优');
     expect(source).toContain('相同制作公司');
     expect(source).toContain('v-if="item.similarities?.length"');
+    expect(source).toContain("push({ role: 'player', text: '我猜是：', boldText: guessedTitle, image: item.image, link: `https://bgm.tv/subject/${item.id}`, similarities: res.similarities?.length ? res.similarities : undefined })");
+    expect(source).toContain("push({ role: 'system', text: res.message, tone: 'bad' })");
+    expect(source).not.toContain("push({ role: 'system', text: res.message, tone: 'bad', similarities:");
     expect(source).not.toContain('猜错后会显示：相同标签、共同参与配音的声优、相同制作公司');
     expect(source).not.toContain('暂无相同信息');
   });
@@ -167,16 +170,33 @@ describe('app layout controls', () => {
     expect(source).toContain('question = savedQuestion');
   });
 
-  test('places title and a single GitHub button on opposite sides', () => {
+  test('keeps title and compact GitHub action side by side on mobile', () => {
     const source = appVue();
 
     expect(source).toContain('https://github.com/nepsyn/anime-guess-ai');
     expect(source).toContain('GitHub');
     expect(source).toContain('fa-github');
     expect(source).toContain('aria-label="在 GitHub 查看项目"');
-    expect(source).toContain('class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"');
+    expect(source).toContain('class="mt-1 flex items-center justify-between gap-3"');
+    expect(source).toContain('h-9 w-9 shrink-0');
+    expect(source).toContain('<span class="sr-only sm:not-sr-only">GitHub</span>');
+    expect(source).not.toContain('flex-col gap-3 sm:flex-row');
     expect(source).not.toContain('>Star');
     expect(source).not.toContain('fa-star');
     expect(source).not.toContain('aria-label="给项目点 Star"');
+  });
+
+  test('closes settings drawer from browser back instead of leaving the page', () => {
+    const source = appVue();
+
+    expect(source).toContain('let settingsHistoryPushed = false');
+    expect(source).toContain('function openSettings()');
+    expect(source).toContain("history.pushState({ ...(history.state || {}), animeGuessSettingsOpen: true }, '')");
+    expect(source).toContain('function closeSettings(options: { fromPopstate?: boolean } = {})');
+    expect(source).toContain("window.addEventListener('popstate', handleSettingsPopstate)");
+    expect(source).toContain("window.removeEventListener('popstate', handleSettingsPopstate)");
+    expect(source).toContain('closeSettings({ fromPopstate: true })');
+    expect(source).toContain('@click="openSettings"');
+    expect(source).toContain('@click="closeSettings()"');
   });
 });
