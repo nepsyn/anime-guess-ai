@@ -1,4 +1,4 @@
-import { compactSubjectForAi, normalizeAiConfig, type AiConfig } from './game';
+import { compactSubjectForAi, normalizeAiConfig, throwAiHttpError, type AiConfig } from './game';
 
 export async function answerQuestion(subject: any, question: string, config?: string | AiConfig) {
   if (!question?.trim()) throw new Error('问题不能为空');
@@ -36,7 +36,7 @@ async function callOpenAiJson(
       temperature: 0.4,
     }),
   });
-  if (!res.ok) throw new Error(`GPT API ${res.status}: ${await res.text()}`);
+  if (!res.ok) await throwAiHttpError('GPT', res);
   const data = await res.json();
   return parseAiJson(data?.choices?.[0]?.message?.content);
 }
@@ -54,7 +54,7 @@ async function callGeminiJson(prompt: string, config: Required<Pick<AiConfig, 'a
       generationConfig: { temperature: 0.4, responseMimeType: 'application/json' },
     }),
   });
-  if (!res.ok) throw new Error(`Gemini API ${res.status}: ${await res.text()}`);
+  if (!res.ok) await throwAiHttpError('Gemini', res);
   const data = await res.json();
   return parseAiJson(data?.candidates?.[0]?.content?.parts?.[0]?.text);
 }

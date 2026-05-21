@@ -1,6 +1,6 @@
 import { db, initDb, cleanupExpiredSubjects } from '../../utils/db';
 import { findRandomSubject, getRelatedSubjectIds, getSubjectWithCharacters } from '../../utils/bangumi';
-import { buildHintDeck, HINT_LIMIT, INITIAL_SCORE } from '../../utils/game';
+import { buildHintDeck, HINT_LIMIT, INITIAL_SCORE, API_QUOTA_EXCEEDED_MESSAGE } from '../../utils/game';
 
 const TTL_MS = Number(process.env.SUBJECT_CACHE_TTL_MS || 7 * 24 * 60 * 60 * 1000);
 
@@ -27,7 +27,11 @@ export default defineEventHandler(async (event) => {
   try {
     hintDeck = await buildHintDeck(subject, aiConfig);
   } catch (err: any) {
-    throw createError({ statusCode: 400, statusMessage: '提示生成失败', message: err?.message || '提示生成失败' });
+    const message = String(err?.message || '提示生成失败');
+    if (message.includes(API_QUOTA_EXCEEDED_MESSAGE)) {
+      throw createError({ statusCode: 429, statusMessage: API_QUOTA_EXCEEDED_MESSAGE, message: API_QUOTA_EXCEEDED_MESSAGE });
+    }
+    throw createError({ statusCode: 400, statusMessage: '提示生成失败', message });
   }
   const initialHint = hintDeck[0];
   const sessionId = crypto.randomUUID();

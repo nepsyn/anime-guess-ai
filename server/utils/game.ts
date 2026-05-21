@@ -5,6 +5,20 @@ export const HINT_LIMIT = 10;
 export const INITIAL_SCORE = 20;
 export const QUESTION_COST = 1;
 export const HINT_COST = 2;
+export const API_QUOTA_EXCEEDED_MESSAGE = '当前api key额度已达上限，请更换api key重新开始游戏';
+
+export async function throwAiHttpError(provider: 'GPT' | 'Gemini', res: Response): Promise<never> {
+  const text = await res.text();
+  const normalized = text.toLowerCase();
+  const quotaExceeded =
+    res.status === 429 ||
+    normalized.includes('insufficient_quota') ||
+    normalized.includes('quota') ||
+    normalized.includes('resource_exhausted') ||
+    normalized.includes('rate limit');
+  if (quotaExceeded) throw new Error(API_QUOTA_EXCEEDED_MESSAGE);
+  throw new Error(`${provider} API ${res.status}: ${text}`);
+}
 
 export function deductScore(score: number, cost: number) {
   const current = Number.isFinite(Number(score)) ? Number(score) : INITIAL_SCORE;
@@ -229,7 +243,7 @@ async function callOpenAiHintJson(
       temperature: 0.5,
     }),
   });
-  if (!res.ok) throw new Error(`GPT API ${res.status}: ${await res.text()}`);
+  if (!res.ok) await throwAiHttpError('GPT', res);
   const data = await res.json();
   return parseHintJson(data?.choices?.[0]?.message?.content);
 }
@@ -249,7 +263,7 @@ async function callGeminiHintJson(
       generationConfig: { temperature: 0.5, responseMimeType: 'application/json' },
     }),
   });
-  if (!res.ok) throw new Error(`Gemini API ${res.status}: ${await res.text()}`);
+  if (!res.ok) await throwAiHttpError('Gemini', res);
   const data = await res.json();
   return parseHintJson(data?.candidates?.[0]?.content?.parts?.[0]?.text);
 }

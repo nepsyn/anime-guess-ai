@@ -334,4 +334,21 @@ describe('answerQuestion', () => {
       globalThis.fetch = oldFetch;
     }
   });
+
+  test('shows a clear quota-exceeded message for exhausted user API keys', async () => {
+    const oldFetch = globalThis.fetch;
+    globalThis.fetch = async () =>
+      new Response(JSON.stringify({ error: { message: 'You exceeded your current quota.' } }), {
+        status: 429,
+        headers: { 'content-type': 'application/json' },
+      });
+
+    try {
+      await expect(answerQuestion(sampleSubject, '它是动画吗？', { provider: 'gpt', apiKey: 'spent-key' })).rejects.toThrow(
+        '当前api key额度已达上限，请更换api key重新开始游戏',
+      );
+    } finally {
+      globalThis.fetch = oldFetch;
+    }
+  });
 });
