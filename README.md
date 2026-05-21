@@ -1,6 +1,8 @@
-# AI 猜动画名
+# 二次元婆罗门猜猜乐
 
 一个基于 Nuxt + TypeScript + Tailwind + Bun 的 Bangumi 猜动画名 Web 小游戏。
+
+> Pure Vibe Coding
 
 ## 功能
 
@@ -29,26 +31,31 @@ cp .env.example .env
 按需编辑 `.env`：
 
 ```env
+# Runtime
 HOST=127.0.0.1
 PORT=3010
 NITRO_PORT=3010
 DATABASE_URL=postgres://anime_user:password@127.0.0.1:5432/anime_guess
 
+# Bangumi
 BANGUMI_TOKEN=
 BANGUMI_USER_AGENT=anime-guess-ai/0.1 (https://github.com/nepsyn/anime-guess-ai)
 SUBJECT_CACHE_TTL_MS=604800000
 
-AI_PROVIDER=gpt
-
-OPENAI_API_KEY=
-OPENAI_BASE_URL=https://api.openai.com/v1
-OPENAI_MODEL=gpt-4o-mini
-
+# AI 模型 API Key / 模型名称 / OpenAI-compatible Base URL 可在页面“游戏设置”中由用户配置，并保存到浏览器 localStorage
+# 如果环境变量中有配置 API Key，默认使用环境变量中的key
+# gemini/gpt
+AI_PROVIDER=
+GEMINI_MODEL=
 GEMINI_API_KEY=
-GEMINI_MODEL=gemini-3.5-flash
-```
+OPENAI_MODEL=
+OPENAI_BASE_URL=
+OPENAI_API_KEY=
 
-> 没有配置模型 API Key 时，AI 提问接口会保守返回「不确定」，不会编造答案。
+# Umami analytics（留空则不加载统计脚本）
+NUXT_PUBLIC_UMAMI_HOST_URL=
+NUXT_PUBLIC_UMAMI_WEBSITE_ID=
+```
 
 ## 安装与开发
 
