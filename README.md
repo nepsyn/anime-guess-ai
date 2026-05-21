@@ -2,6 +2,8 @@
 
 一个基于 Nuxt + TypeScript + Tailwind + Bun 的 Bangumi 猜动画名 Web 小游戏。
 
+[点击体验](https://ani-guess.nepsyn.net)，公用API每月有额度限制，请尽量配置自己的API Key。
+
 > Pure Vibe Coding
 
 ## 功能
