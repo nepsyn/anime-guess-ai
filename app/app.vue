@@ -573,7 +573,7 @@ async function submitGuess(item = selected.value) {
           >
             <div class="flex gap-3">
               <img v-if="item.image" :src="item.image" class="h-20 w-14 rounded-lg object-cover shadow-sm" />
-              <div class="flex column gap-1">
+              <div class="flex flex-col gap-1">
                 <p class="leading-6">
                   <span class="mr-2 text-xs uppercase text-slate-500">{{ item.role }}</span>
                   <template v-if="item.boldText">
@@ -600,7 +600,7 @@ async function submitGuess(item = selected.value) {
                     >
                   </template>
                 </p>
-                <div v-if="item.similarities?.length" class="mt-3 flex flex-wrap gap-2">
+                <div v-if="item.similarities?.length" class="flex flex-wrap gap-2">
                   <span
                     v-for="hint in item.similarities"
                     :key="hint.label"
