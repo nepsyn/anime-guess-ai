@@ -54,6 +54,22 @@ export async function findRandomSubject(filters: PlayerFilters) {
   return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
+export async function findRandomCollectedSubject(uid: string) {
+  const normalizedUid = String(uid || '').trim();
+  if (!normalizedUid) throw new Error('请先填写 Bangumi UID。');
+  const collectionPath = (offset: number) =>
+    `/v0/users/${encodeURIComponent(normalizedUid)}/collections?subject_type=2&type=2&limit=1&offset=${offset}`;
+  const first = await bgmFetch(collectionPath(0));
+  const total = Number(first?.total || 0);
+  if (!total) throw new Error('这个 Bangumi 用户没有公开的“看过”动画收藏。');
+  const offset = Math.floor(Math.random() * total);
+  const page = await bgmFetch(collectionPath(offset));
+  const item = (page?.data || [])[0];
+  const subject = item?.subject || item;
+  if (!subject?.id) throw new Error('Bangumi 收藏接口没有返回可用动画，请稍后再试。');
+  return subject;
+}
+
 export async function getSubject(id: number) {
   return bgmFetch(`/v0/subjects/${id}`);
 }

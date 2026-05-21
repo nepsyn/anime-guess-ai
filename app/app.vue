@@ -10,6 +10,7 @@ type SearchResult = {
 };
 type Answer = { id: number; name: string; name_cn?: string; image?: string; url: string };
 type HistoryItem = { answer: Answer; score: number; createdAt: number; updatedAt: number };
+type SimilarityHint = { label: string; values: string[] };
 type ChatItem = {
   role: 'system' | 'player' | 'ai';
   text: string;
@@ -17,9 +18,12 @@ type ChatItem = {
   image?: string;
   boldText?: string;
   link?: string;
+  similarities?: SimilarityHint[];
 };
 
 const filters = reactive({
+  sourceMode: 'filters' as 'filters' | 'collections',
+  bangumiUid: '',
   yearFrom: 2010,
   yearTo: new Date().getFullYear(),
   format: 'tv',
@@ -61,6 +65,16 @@ function aiConfig() {
     apiKey: modelApiKey.value.trim(),
     model: modelName.value.trim(),
     baseUrl: provider.value === 'gpt' ? openAiBaseUrl.value.trim() : '',
+  };
+}
+
+function gameStartPayload() {
+  return {
+    filters,
+    sourceMode: filters.sourceMode,
+    bangumiUid: filters.bangumiUid,
+    provider: provider.value,
+    aiConfig: aiConfig(),
   };
 }
 
@@ -214,7 +228,7 @@ async function startGame() {
       remainingHints: number;
       totalHints: number;
       score: number;
-    }>('/api/game/start', { method: 'POST', body: { filters, provider: provider.value, aiConfig: aiConfig() } });
+    }>('/api/game/start', { method: 'POST', body: gameStartPayload() });
     sessionId.value = res.sessionId;
     revealedAnswer.value = null;
     correctDialog.value = null;
@@ -328,6 +342,7 @@ async function submitGuess(item = selected.value) {
       message: string;
       score: number;
       answer?: Answer;
+      similarities?: SimilarityHint[];
     }>('/api/game/guess', { method: 'POST', body: { sessionId: sessionId.value, subjectId: item.id } });
     score.value = res.score;
     push({ role: 'player', text: '我猜是：', boldText: guessedTitle, image: item.image, link: `https://bgm.tv/subject/${item.id}` });
@@ -336,7 +351,7 @@ async function submitGuess(item = selected.value) {
       reveal(res.answer, `🎉 ${res.message} 答案`);
       showCorrectDialog(res.answer, res.message);
     } else {
-      push({ role: 'system', text: res.message, tone: 'bad' });
+      push({ role: 'system', text: res.message, tone: 'bad', similarities: res.similarities?.length ? res.similarities : undefined });
     }
   } catch (err: any) {
     push({ role: 'system', text: errorMessage(err, '提交答案失败'), tone: 'bad' });
@@ -356,8 +371,8 @@ async function submitGuess(item = selected.value) {
           <p class="text-xs font-medium text-indigo-600">Anime Guess！</p>
           <h1 class="mt-1 text-2xl font-bold text-slate-950 sm:text-3xl">二次元婆罗门猜猜乐</h1>
           <p class="mt-2 max-w-3xl text-xs leading-5 text-slate-600 sm:text-sm">
-            AI 根据你的筛选条件从 Bangumi 随机抽取动画。开局会给出初始提示；每局共 10
-            轮提示，线索会逐步更接近核心信息。开局20分，每次提示-2分，每次提问-1分。
+            AI 根据你的筛选条件或 Bangumi 看过收藏随机抽取动画。开局会给出初始提示；每局共 10
+            轮提示，线索会逐步更接近核心信息。开局20分，每次提示-2分，每次提问-1分，猜错-3分。
           </p>
         </div>
         <div class="mt-3 flex flex-wrap items-center gap-2">
@@ -514,6 +529,15 @@ async function submitGuess(item = selected.value) {
                   >
                 </template>
               </p>
+              <div v-if="item.similarities?.length" class="mt-3 flex flex-wrap gap-2">
+                <span class="sr-only">猜错后会显示：相同标签、共同参与配音的声优、相同制作公司</span>
+                <span
+                  v-for="hint in item.similarities"
+                  :key="hint.label"
+                  class="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-rose-700 ring-1 ring-rose-100"
+                  >{{ hint.label }}：{{ hint.values.join('、') }}</span
+                >
+              </div>
             </div>
           </article>
         </div>
@@ -638,13 +662,32 @@ async function submitGuess(item = selected.value) {
           <i class="fa-solid fa-xmark text-xl"></i>
         </button>
       </div>
-      <p class="mt-2 text-sm text-slate-500">调整筛选条件后，点击“开始新游戏”会按新条件重新抽取动画。</p>
+      <p class="mt-2 text-sm text-slate-500">选择出题模式后，点击“开始新游戏”会按当前配置重新抽取动画。</p>
 
       <div
         class="mt-6 grid grid-cols-2 gap-3 text-sm text-slate-700"
         @input="saveSettings"
         @change="saveSettings"
       >
+        <label class="col-span-2"
+          >出题模式
+          <select
+            v-model="filters.sourceMode"
+            class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+          >
+            <option value="filters">按筛选条件随机</option>
+            <option value="collections">从 Bangumi 看过收藏随机</option>
+          </select>
+        </label>
+        <label v-if="filters.sourceMode === 'collections'" class="col-span-2"
+          >Bangumi UID
+          <input
+            v-model="filters.bangumiUid"
+            class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+            placeholder="输入公开 Bangumi UID / 用户名"
+          />
+        </label>
+        <template v-if="filters.sourceMode === 'filters'">
         <label
           >起始年份<input
             v-model.number="filters.yearFrom"
@@ -720,6 +763,7 @@ async function submitGuess(item = selected.value) {
             placeholder="战斗, 校园"
             class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
         /></label>
+        </template>
         <label class="col-span-2"
           >模型提供商
           <select

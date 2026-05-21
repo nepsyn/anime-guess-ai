@@ -124,4 +124,30 @@ describe('app layout controls', () => {
     expect(settingsForm).toContain('@input="saveSettings"');
     expect(settingsForm).toContain('@change="saveSettings"');
   });
+
+  test('supports source mode settings for Bangumi watched collections', () => {
+    const source = appVue();
+
+    expect(source).toContain("sourceMode: 'filters'");
+    expect(source).toContain('bangumiUid');
+    expect(source).toContain('出题模式');
+    expect(source).toContain('<option value="filters">按筛选条件随机</option>');
+    expect(source).toContain('<option value="collections">从 Bangumi 看过收藏随机</option>');
+    expect(source).toContain('Bangumi UID');
+    expect(source).toContain('sourceMode: filters.sourceMode');
+    expect(source).toContain('bangumiUid: filters.bangumiUid');
+  });
+
+  test('shows wrong-guess overlap tags without revealing the answer', () => {
+    const source = appVue();
+
+    expect(source).toContain('type SimilarityHint');
+    expect(source).toContain('similarities?: SimilarityHint[];');
+    expect(source).toContain('res.similarities?.length');
+    expect(source).toContain('相同标签');
+    expect(source).toContain('共同参与配音的声优');
+    expect(source).toContain('相同制作公司');
+    expect(source).toContain('v-if="item.similarities?.length"');
+    expect(source).not.toContain('暂无相同信息');
+  });
 });

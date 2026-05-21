@@ -1,6 +1,6 @@
 import { db, initDb } from '../../utils/db';
-import { getRelatedSubjectIds } from '../../utils/bangumi';
-import { isCorrectGuess, publicAnswer } from '../../utils/game';
+import { getRelatedSubjectIds, getSubjectWithCharacters } from '../../utils/bangumi';
+import { compareGuessOverlap, deductScore, isCorrectGuess, publicAnswer, WRONG_GUESS_COST } from '../../utils/game';
 
 export default defineEventHandler(async (event) => {
   await initDb();
@@ -33,16 +33,24 @@ export default defineEventHandler(async (event) => {
 
   const sameSeries = correct && guessId !== subjectId;
   const subject = JSON.parse(rows[0].payload);
-  const score = Number(rows[0].score) || 0;
+  const currentScore = Number(rows[0].score) || 0;
+  const score = correct ? currentScore : deductScore(currentScore, WRONG_GUESS_COST);
+  let similarities: ReturnType<typeof compareGuessOverlap> = [];
+  if (!correct) {
+    const guessedSubject = await getSubjectWithCharacters(guessId);
+    similarities = compareGuessOverlap(guessedSubject, subject);
+    await db`UPDATE games SET score = ${score}, updated_at = ${Date.now()} WHERE id = ${sessionId}`;
+  }
   return {
     correct,
     sameSeries,
     score,
+    similarities,
     answer: correct ? publicAnswer(subject) : undefined,
     message: correct
       ? sameSeries
         ? '你猜的是同一动画的不同季度/关联条目，也算答对啦！'
         : '答对了！'
-      : '不是这部动画哦，请再接再厉~',
+      : '不是这部动画哦，已扣 3 分，请再接再厉~',
   };
 });

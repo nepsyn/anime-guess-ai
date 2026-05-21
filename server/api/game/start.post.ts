@@ -1,5 +1,5 @@
 import { db, initDb, cleanupExpiredSubjects } from '../../utils/db';
-import { findRandomSubject, getRelatedSubjectIds, getSubjectWithCharacters } from '../../utils/bangumi';
+import { findRandomCollectedSubject, findRandomSubject, getRelatedSubjectIds, getSubjectWithCharacters } from '../../utils/bangumi';
 import { buildHintDeck, HINT_LIMIT, INITIAL_SCORE, API_QUOTA_EXCEEDED_MESSAGE } from '../../utils/game';
 
 const TTL_MS = Number(process.env.SUBJECT_CACHE_TTL_MS || 7 * 24 * 60 * 60 * 1000);
@@ -9,7 +9,11 @@ export default defineEventHandler(async (event) => {
   await cleanupExpiredSubjects();
   const body = await readBody(event);
   const filters = body?.filters || {};
-  const random = await findRandomSubject(filters);
+  const sourceMode = body?.sourceMode || filters?.sourceMode || 'filters';
+  const random =
+    sourceMode === 'collections'
+      ? await findRandomCollectedSubject(body?.bangumiUid || filters?.bangumiUid)
+      : await findRandomSubject(filters);
   const subjectId = Number(random.id);
   let subject: any | null = null;
   const cached = await db`SELECT payload FROM subjects WHERE id = ${subjectId} AND expires_at > ${Date.now()} LIMIT 1`;

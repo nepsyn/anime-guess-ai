@@ -7,6 +7,8 @@ import {
   HINT_LIMIT,
   deductScore,
   hintResponseFromUsedCount,
+  WRONG_GUESS_COST,
+  compareGuessOverlap,
 } from '../server/utils/game';
 import { answerQuestion } from '../server/utils/ai';
 
@@ -60,6 +62,12 @@ describe('deductScore', () => {
     expect(deductScore(1, 2)).toBe(0);
     expect(deductScore(0, 1)).toBe(0);
   });
+
+  test('wrong guesses cost three points independently from questions and hints', () => {
+    expect(WRONG_GUESS_COST).toBe(3);
+    expect(deductScore(20, WRONG_GUESS_COST)).toBe(17);
+    expect(deductScore(2, WRONG_GUESS_COST)).toBe(0);
+  });
 });
 
 describe('hintResponseFromUsedCount', () => {
@@ -102,6 +110,31 @@ const sampleSubject = {
   rank: 100,
   summary: '这是一段足够长的简介，用来生成逐步接近核心信息但不直接暴露标题的线索。',
 };
+
+describe('compareGuessOverlap', () => {
+  test('returns deterministic shared tags, voice actors, and production companies', () => {
+    const answer = {
+      ...sampleSubject,
+      tags: [{ name: '战斗' }, { name: '奇幻' }, { name: '漫画改' }],
+      infobox: [{ key: '动画制作', value: 'ufotable' }],
+      characters: [{ name: '主角A', actors: [{ name: '花泽香菜' }, { name: '佐仓绫音' }] }],
+    };
+    const guess = {
+      id: 2,
+      name: 'guess',
+      name_cn: '猜测动画',
+      tags: [{ name: '战斗' }, { name: '校园' }, { name: '漫画改' }],
+      infobox: [{ key: '动画制作', value: [{ v: 'ufotable' }, { v: 'A-1 Pictures' }] }],
+      characters: [{ name: '角色B', actors: [{ name: '花泽香菜' }, { name: '早见沙织' }] }],
+    };
+
+    expect(compareGuessOverlap(guess, answer)).toEqual([
+      { label: '相同标签', values: ['战斗', '漫画改'] },
+      { label: '共同参与配音的声优', values: ['花泽香菜'] },
+      { label: '相同制作公司', values: ['ufotable'] },
+    ]);
+  });
+});
 
 describe('pickHint fallback', () => {
   test('generates a deterministic unrevealed fallback hint from cached subject data', () => {

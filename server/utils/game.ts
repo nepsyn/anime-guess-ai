@@ -5,6 +5,7 @@ export const HINT_LIMIT = 10;
 export const INITIAL_SCORE = 20;
 export const QUESTION_COST = 1;
 export const HINT_COST = 2;
+export const WRONG_GUESS_COST = 3;
 export const API_QUOTA_EXCEEDED_MESSAGE = '当前api key额度已达上限，请更换api key重新开始游戏';
 
 export async function throwAiHttpError(provider: 'GPT' | 'Gemini', res: Response): Promise<never> {
@@ -137,6 +138,75 @@ export function publicAnswer(subject: any) {
     image: getSubjectImage(subject),
     url: `https://bgm.tv/subject/${subject.id}`,
   };
+}
+
+export type SimilarityHint = { label: string; values: string[] };
+
+function collectTextValues(value: any): string[] {
+  if (value === null || value === undefined) return [];
+  if (typeof value === 'string' || typeof value === 'number') return [String(value).trim()].filter(Boolean);
+  if (Array.isArray(value)) return value.flatMap(collectTextValues);
+  if (typeof value === 'object') {
+    return [value.name_cn, value.name, value.v, value.value]
+      .flatMap(collectTextValues)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+function uniqueClean(values: string[]) {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const raw of values) {
+    const value = String(raw || '').trim();
+    const key = value.toLowerCase();
+    if (!value || seen.has(key)) continue;
+    seen.add(key);
+    result.push(value);
+  }
+  return result;
+}
+
+function intersection(a: string[], b: string[], limit = 6) {
+  const bKeys = new Set(b.map((item) => item.toLowerCase()));
+  return uniqueClean(a).filter((item) => bKeys.has(item.toLowerCase())).slice(0, limit);
+}
+
+function subjectTags(subject: any) {
+  return uniqueClean((subject?.tags || []).map((tag: any) => tag?.name || tag).filter(Boolean));
+}
+
+function infoboxValues(subject: any, keyMatcher: (key: string) => boolean) {
+  return uniqueClean(
+    (subject?.infobox || [])
+      .filter((item: any) => keyMatcher(String(item?.key || '')))
+      .flatMap((item: any) => collectTextValues(item?.value)),
+  );
+}
+
+function voiceActors(subject: any) {
+  const fromCharacters = (subject?.characters || []).flatMap((character: any) =>
+    (character?.actors || []).flatMap((actor: any) => collectTextValues(actor)),
+  );
+  const fromInfobox = infoboxValues(subject, (key) => key.includes('声优') || key.includes('配音'));
+  return uniqueClean([...fromCharacters, ...fromInfobox]);
+}
+
+function productionCompanies(subject: any) {
+  return infoboxValues(
+    subject,
+    (key) => key.includes('动画制作') || key === '制作' || key.includes('制作公司') || key.includes('制作协力'),
+  );
+}
+
+export function compareGuessOverlap(guess: any, answer: any): SimilarityHint[] {
+  const groups: SimilarityHint[] = [
+    { label: '相同标签', values: intersection(subjectTags(guess), subjectTags(answer)) },
+    { label: '共同参与配音的声优', values: intersection(voiceActors(guess), voiceActors(answer)) },
+    { label: '相同制作公司', values: intersection(productionCompanies(guess), productionCompanies(answer)) },
+  ];
+  return groups.filter((group) => group.values.length > 0);
 }
 
 function titleTokens(subject: any) {
