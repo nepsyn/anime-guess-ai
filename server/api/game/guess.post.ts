@@ -51,6 +51,6 @@ export default defineEventHandler(async (event) => {
       ? sameSeries
         ? '你猜的是同一动画的不同季度/关联条目，也算答对啦！'
         : '答对了！'
-      : '不是这部动画哦，已扣 3 分，请再接再厉~',
+      : '不是这部动画哦，请再接再厉~',
   };
 });
