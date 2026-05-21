@@ -181,7 +181,7 @@ function loadQuestionHistory() {
   if (!import.meta.client) return;
   try {
     const parsed = JSON.parse(localStorage.getItem(QUESTION_HISTORY_STORAGE_KEY) || '[]');
-    questionHistory.value = Array.isArray(parsed) ? parsed.map(String).filter(Boolean).slice(0, 10) : [];
+    questionHistory.value = Array.isArray(parsed) ? parsed.map(String).filter(Boolean).slice(0, 8) : [];
   } catch {
     questionHistory.value = [];
   }
@@ -192,7 +192,7 @@ function saveQuestionHistory(text: string) {
   const normalized = text.trim();
   if (!normalized) return;
   const next = [normalized, ...questionHistory.value.filter((item) => item !== normalized)];
-  questionHistory.value = next.slice(0, 10);
+  questionHistory.value = next.slice(0, 8);
   localStorage.setItem(QUESTION_HISTORY_STORAGE_KEY, JSON.stringify(questionHistory.value));
 }
 
@@ -517,7 +517,7 @@ async function submitGuess(item = selected.value) {
             :key="savedQuestion"
             :disabled="!canPlay"
             class="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-slate-600 shadow-sm hover:border-indigo-200 hover:bg-indigo-50 disabled:opacity-40"
-            @click="question = savedQuestion"
+            @click="question = savedQuestion; ask()"
           >
             {{ savedQuestion }}
           </button>
@@ -573,39 +573,41 @@ async function submitGuess(item = selected.value) {
           >
             <div class="flex gap-3">
               <img v-if="item.image" :src="item.image" class="h-20 w-14 rounded-lg object-cover shadow-sm" />
-              <p class="leading-6">
-                <span class="mr-2 text-xs uppercase text-slate-500">{{ item.role }}</span>
-                <template v-if="item.boldText">
-                  <span>{{ item.text }}</span>
-                  <a
-                    v-if="item.link"
-                    :href="item.link"
-                    target="_blank"
-                    class="ml-1 font-bold text-indigo-700 underline decoration-indigo-300 underline-offset-2 hover:text-indigo-500"
-                    >{{ item.boldText }}</a
-                  >
-                  <strong v-else class="ml-1 font-bold text-slate-950">{{ item.boldText }}</strong>
-                </template>
-                <template v-else>
+              <div class="flex column gap-1">
+                <p class="leading-6">
+                  <span class="mr-2 text-xs uppercase text-slate-500">{{ item.role }}</span>
+                  <template v-if="item.boldText">
+                    <span>{{ item.text }}</span>
+                    <a
+                      v-if="item.link"
+                      :href="item.link"
+                      target="_blank"
+                      class="ml-1 font-bold text-indigo-700 underline decoration-indigo-300 underline-offset-2 hover:text-indigo-500"
+                      >{{ item.boldText }}</a
+                    >
+                    <strong v-else class="ml-1 font-bold text-slate-950">{{ item.boldText }}</strong>
+                  </template>
+                  <template v-else>
+                    <span
+                      v-for="(part, partIndex) in highlightParts(item.text)"
+                      :key="partIndex"
+                      :class="
+                        part.highlight
+                          ? 'mx-0.5 rounded-md bg-yellow-200 px-1 font-semibold text-yellow-950 ring-1 ring-yellow-300'
+                          : ''
+                      "
+                      >{{ part.text }}</span
+                    >
+                  </template>
+                </p>
+                <div v-if="item.similarities?.length" class="mt-3 flex flex-wrap gap-2">
                   <span
-                    v-for="(part, partIndex) in highlightParts(item.text)"
-                    :key="partIndex"
-                    :class="
-                      part.highlight
-                        ? 'mx-0.5 rounded-md bg-yellow-200 px-1 font-semibold text-yellow-950 ring-1 ring-yellow-300'
-                        : ''
-                    "
-                    >{{ part.text }}</span
+                    v-for="hint in item.similarities"
+                    :key="hint.label"
+                    class="rounded-full bg-white px-2.5 py-1 text-xs items-center text-rose-700 ring-1 ring-rose-100"
+                    >{{ hint.label }}：{{ hint.values.join('、') }}</span
                   >
-                </template>
-              </p>
-              <div v-if="item.similarities?.length" class="mt-3 flex flex-wrap gap-2">
-                <span
-                  v-for="hint in item.similarities"
-                  :key="hint.label"
-                  class="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-rose-700 ring-1 ring-rose-100"
-                  >{{ hint.label }}：{{ hint.values.join('、') }}</span
-                >
+                </div>
               </div>
             </div>
           </article>
