@@ -423,7 +423,7 @@ async function submitGuess(item = selected.value) {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="在 GitHub 查看项目"
-              class="inline-flex h-9 w-9 shrink-0 items-center justify-center gap-1 rounded-full border border-slate-200 bg-white px-0 text-xs font-semibold text-slate-700 shadow-sm hover:border-indigo-200 hover:bg-indigo-50 sm:w-auto sm:px-3"
+              class="inline-flex h-9 w-9 shrink-0 items-center justify-center gap-1 rounded-full border border-slate-200 bg-white px-0 font-semibold text-slate-700 shadow-sm hover:border-indigo-200 hover:bg-indigo-50 sm:w-auto sm:px-3"
             >
               <i class="fa-brands fa-github"></i><span class="sr-only sm:not-sr-only">GitHub</span>
             </a>
