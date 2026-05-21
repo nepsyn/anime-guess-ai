@@ -27,8 +27,10 @@ describe('app shell metadata', () => {
     expect(pkg.dependencies).toHaveProperty('@nuxt/scripts');
     expect(config).toContain("'@nuxt/scripts'");
     expect(config).toContain('umami: {');
-    expect(config).toContain('process.env.UMAMI_WEBSITE_ID || process.env.NUXT_PUBLIC_UMAMI_WEBSITE_ID ||');
-    expect(config).toContain('process.env.UMAMI_HOST_URL || process.env.NUXT_PUBLIC_UMAMI_HOST_URL ||');
+    expect(config).toContain("websiteId: process.env.NUXT_PUBLIC_UMAMI_WEBSITE_ID || ''");
+    expect(config).toContain("hostUrl: process.env.NUXT_PUBLIC_UMAMI_HOST_URL || ''");
+    expect(config).not.toContain('process.env.UMAMI_WEBSITE_ID');
+    expect(config).not.toContain('process.env.UMAMI_HOST_URL');
 
     expect(exists('app/plugins/umami.client.ts')).toBe(true);
     expect(exists('plugins/umami.client.ts')).toBe(false);
@@ -38,8 +40,8 @@ describe('app shell metadata', () => {
     expect(plugin).toContain('config.public.umami.hostUrl');
     expect(plugin).toContain("trigger: 'onNuxtReady'");
 
-    expect(envExample).toContain('UMAMI_HOST_URL=');
-    expect(envExample).toContain('UMAMI_WEBSITE_ID=');
+    expect(envExample).not.toMatch(/^UMAMI_HOST_URL=/m);
+    expect(envExample).not.toMatch(/^UMAMI_WEBSITE_ID=/m);
     expect(envExample).toContain('NUXT_PUBLIC_UMAMI_HOST_URL=');
     expect(envExample).toContain('NUXT_PUBLIC_UMAMI_WEBSITE_ID=');
   });

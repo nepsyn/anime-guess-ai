@@ -363,10 +363,14 @@ async function submitGuess(item = selected.value) {
         <div class="mt-3 flex flex-wrap items-center gap-2">
           <button
             :disabled="loading"
-            class="h-10 min-w-[96px] rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-200 hover:bg-indigo-500 disabled:opacity-50"
+            class="flex h-10 min-w-[96px] items-center justify-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-200 hover:bg-indigo-500 disabled:opacity-50"
             @click="startGame"
           >
-            开始新游戏
+            <span v-if="loading" class="inline-flex items-center justify-center" aria-live="polite">
+              <i class="fa-solid fa-circle-notch animate-spin text-base" aria-hidden="true"></i>
+              <span class="sr-only">加载中</span>
+            </span>
+            <template v-else>开始新游戏</template>
           </button>
           <button
             class="flex h-10 min-w-[96px] items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:border-indigo-200 hover:bg-indigo-50"
@@ -752,10 +756,14 @@ async function submitGuess(item = selected.value) {
 
       <button
         :disabled="loading"
-        class="mt-6 w-full rounded-2xl bg-indigo-600 px-4 py-3 font-semibold text-white shadow-lg shadow-indigo-200 hover:bg-indigo-500 disabled:opacity-50"
+        class="mt-6 flex w-full items-center justify-center rounded-2xl bg-indigo-600 px-4 py-3 font-semibold text-white shadow-lg shadow-indigo-200 hover:bg-indigo-500 disabled:opacity-50"
         @click="startGame"
       >
-        按当前设置开始新游戏
+        <span v-if="loading" class="inline-flex items-center justify-center" aria-live="polite">
+          <i class="fa-solid fa-circle-notch animate-spin text-base" aria-hidden="true"></i>
+          <span class="sr-only">加载中</span>
+        </span>
+        <template v-else>按当前设置开始新游戏</template>
       </button>
     </aside>
   </main>

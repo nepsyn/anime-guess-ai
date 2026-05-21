@@ -48,14 +48,15 @@ describe('app layout controls', () => {
     expect(source).toContain('px-3 py-4 sm:px-4');
   });
 
-  test('keeps start buttons text stable while loading and gives hero actions consistent sizing', () => {
+  test('shows spinner inside start-game buttons while loading and gives hero actions consistent sizing', () => {
     const source = appVue();
     const heroControls = source.match(/<div class="mt-3 flex flex-wrap items-center gap-2[\s\S]*?<\/div>/)?.[0] || '';
 
     expect(source).not.toContain("{{ loading ? '准备游戏中…' : '开始新游戏' }}");
     expect(source).not.toContain("{{ loading ? '准备游戏中…' : '按当前设置开始新游戏' }}");
-    expect(source).toMatch(/>\s*开始新游戏\s*<\/button>/);
-    expect(source).toMatch(/>\s*按当前设置开始新游戏\s*<\/button>/);
+    expect(source).toMatch(/v-if="loading"[\s\S]*animate-spin[\s\S]*sr-only[\s\S]*加载中/);
+    expect(source).toMatch(/v-else>\s*开始新游戏\s*<\/template>/);
+    expect(source).toMatch(/v-else>\s*按当前设置开始新游戏\s*<\/template>/);
     expect(heroControls).toContain('h-10');
     expect(heroControls).toContain('min-w-[96px]');
     expect(heroControls).toContain('当前得分：');
