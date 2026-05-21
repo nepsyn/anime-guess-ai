@@ -145,9 +145,37 @@ describe('app layout controls', () => {
     expect(source).toContain('similarities?: SimilarityHint[];');
     expect(source).toContain('res.similarities?.length');
     expect(source).toContain('相同标签');
+    expect(source).toContain('相同原作者');
+    expect(source).toContain('相同导演');
     expect(source).toContain('共同参与配音的声优');
     expect(source).toContain('相同制作公司');
     expect(source).toContain('v-if="item.similarities?.length"');
+    expect(source).not.toContain('猜错后会显示：相同标签、共同参与配音的声优、相同制作公司');
     expect(source).not.toContain('暂无相同信息');
+  });
+
+  test('uses requested scoring wording and supports recent question shortcuts', () => {
+    const source = appVue();
+
+    expect(source).toContain('开局20分，每次提问-1分，提示-2分，猜错-3分。');
+    expect(source).not.toContain('开局20分，每次提示-2分，每次提问-1分，猜错-3分。');
+    expect(source).toContain("const QUESTION_HISTORY_STORAGE_KEY = 'anime-guess-ai:question-history'");
+    expect(source).toContain('questionHistory.value = next.slice(0, 10)');
+    expect(source).toContain('saveQuestionHistory(q)');
+    expect(source).toContain('最近提问');
+    expect(source).toContain('v-for="savedQuestion in questionHistory"');
+    expect(source).toContain('question = savedQuestion');
+  });
+
+  test('shows GitHub and star buttons next to the title', () => {
+    const source = appVue();
+
+    expect(source).toContain('https://github.com/nepsyn/anime-guess-ai');
+    expect(source).toContain('GitHub');
+    expect(source).toContain('Star');
+    expect(source).toContain('fa-github');
+    expect(source).toContain('fa-star');
+    expect(source).toContain('aria-label="在 GitHub 查看项目"');
+    expect(source).toContain('aria-label="给项目点 Star"');
   });
 });

@@ -200,9 +200,25 @@ function productionCompanies(subject: any) {
   );
 }
 
+function originalCreators(subject: any) {
+  return infoboxValues(
+    subject,
+    (key) => key === '原作' || key.includes('原作者') || key.includes('原案') || key.includes('原著'),
+  );
+}
+
+function directors(subject: any) {
+  return infoboxValues(
+    subject,
+    (key) => key === '导演' || key === '监督' || key.includes('总导演') || key.includes('总监督'),
+  );
+}
+
 export function compareGuessOverlap(guess: any, answer: any): SimilarityHint[] {
   const groups: SimilarityHint[] = [
     { label: '相同标签', values: intersection(subjectTags(guess), subjectTags(answer)) },
+    { label: '相同原作者', values: intersection(originalCreators(guess), originalCreators(answer)) },
+    { label: '相同导演', values: intersection(directors(guess), directors(answer)) },
     { label: '共同参与配音的声优', values: intersection(voiceActors(guess), voiceActors(answer)) },
     { label: '相同制作公司', values: intersection(productionCompanies(guess), productionCompanies(answer)) },
   ];

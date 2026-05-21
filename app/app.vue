@@ -44,6 +44,7 @@ const settingsOpen = ref(false);
 const historyOpen = ref(false);
 const historyItems = ref<HistoryItem[]>([]);
 const question = ref('');
+const questionHistory = ref<string[]>([]);
 const guessText = ref('');
 const searchResults = ref<SearchResult[]>([]);
 const selected = ref<SearchResult | null>(null);
@@ -58,6 +59,9 @@ const chat = ref<ChatItem[]>([
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
 const SETTINGS_STORAGE_KEY = 'anime-guess-ai:game-settings';
 const HISTORY_STORAGE_KEY = 'anime-guess-ai:game-history';
+const QUESTION_HISTORY_STORAGE_KEY = 'anime-guess-ai:question-history';
+const GITHUB_URL = 'https://github.com/nepsyn/anime-guess-ai';
+const KNOWN_SIMILARITY_LABELS = ['相同标签', '相同原作者', '相同导演', '共同参与配音的声优', '相同制作公司'];
 
 function aiConfig() {
   return {
@@ -110,6 +114,7 @@ function saveSettings() {
 }
 
 onMounted(loadSettings);
+onMounted(loadQuestionHistory);
 watch(settingsSnapshot, saveSettings, { deep: true });
 
 const gameEnded = computed(() => Boolean(revealedAnswer.value));
@@ -148,6 +153,25 @@ function saveHistory(answer: Answer) {
   const next = [item, ...loadHistory()].slice(0, 50);
   localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(next));
   historyItems.value = next;
+}
+
+function loadQuestionHistory() {
+  if (!import.meta.client) return;
+  try {
+    const parsed = JSON.parse(localStorage.getItem(QUESTION_HISTORY_STORAGE_KEY) || '[]');
+    questionHistory.value = Array.isArray(parsed) ? parsed.map(String).filter(Boolean).slice(0, 10) : [];
+  } catch {
+    questionHistory.value = [];
+  }
+}
+
+function saveQuestionHistory(text: string) {
+  if (!import.meta.client) return;
+  const normalized = text.trim();
+  if (!normalized) return;
+  const next = [normalized, ...questionHistory.value.filter((item) => item !== normalized)];
+  questionHistory.value = next.slice(0, 10);
+  localStorage.setItem(QUESTION_HISTORY_STORAGE_KEY, JSON.stringify(questionHistory.value));
 }
 
 function openHistory() {
@@ -254,6 +278,7 @@ async function ask() {
   if (!question.value.trim() || !canPlay.value) return;
   const q = question.value.trim();
   question.value = '';
+  saveQuestionHistory(q);
   push({ role: 'player', text: q });
   loading.value = true;
   try {
@@ -369,10 +394,30 @@ async function submitGuess(item = selected.value) {
       <section class="glass rounded-3xl px-3 py-4 sm:px-4">
         <div>
           <p class="text-xs font-medium text-indigo-600">Anime Guess！</p>
-          <h1 class="mt-1 text-2xl font-bold text-slate-950 sm:text-3xl">二次元婆罗门猜猜乐</h1>
+          <div class="mt-1 flex flex-wrap items-center gap-2">
+            <h1 class="text-2xl font-bold text-slate-950 sm:text-3xl">二次元婆罗门猜猜乐</h1>
+            <a
+              :href="GITHUB_URL"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="在 GitHub 查看项目"
+              class="inline-flex h-8 items-center gap-1 rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm hover:border-indigo-200 hover:bg-indigo-50"
+            >
+              <i class="fa-brands fa-github"></i>GitHub
+            </a>
+            <a
+              :href="GITHUB_URL"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="给项目点 Star"
+              class="inline-flex h-8 items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 text-xs font-semibold text-amber-700 shadow-sm hover:bg-amber-100"
+            >
+              <i class="fa-solid fa-star"></i>Star
+            </a>
+          </div>
           <p class="mt-2 max-w-3xl text-xs leading-5 text-slate-600 sm:text-sm">
             AI 根据你的筛选条件或 Bangumi 看过收藏随机抽取动画。开局会给出初始提示；每局共 10
-            轮提示，线索会逐步更接近核心信息。开局20分，每次提示-2分，每次提问-1分，猜错-3分。
+            轮提示，线索会逐步更接近核心信息。开局20分，每次提问-1分，提示-2分，猜错-3分。
           </p>
         </div>
         <div class="mt-3 flex flex-wrap items-center gap-2">
@@ -450,6 +495,18 @@ async function submitGuess(item = selected.value) {
             @click="surrender"
           >
             放弃
+          </button>
+        </div>
+        <div v-if="questionHistory.length" class="mt-2 flex flex-wrap items-center gap-2 text-xs">
+          <span class="font-medium text-slate-500">最近提问</span>
+          <button
+            v-for="savedQuestion in questionHistory"
+            :key="savedQuestion"
+            :disabled="!canPlay"
+            class="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-slate-600 shadow-sm hover:border-indigo-200 hover:bg-indigo-50 disabled:opacity-40"
+            @click="question = savedQuestion"
+          >
+            {{ savedQuestion }}
           </button>
         </div>
       </section>
@@ -530,7 +587,6 @@ async function submitGuess(item = selected.value) {
                 </template>
               </p>
               <div v-if="item.similarities?.length" class="mt-3 flex flex-wrap gap-2">
-                <span class="sr-only">猜错后会显示：相同标签、共同参与配音的声优、相同制作公司</span>
                 <span
                   v-for="hint in item.similarities"
                   :key="hint.label"

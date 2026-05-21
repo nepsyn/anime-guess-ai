@@ -112,11 +112,15 @@ const sampleSubject = {
 };
 
 describe('compareGuessOverlap', () => {
-  test('returns deterministic shared tags, voice actors, and production companies', () => {
+  test('returns deterministic shared tags, original creators, directors, voice actors, and production companies', () => {
     const answer = {
       ...sampleSubject,
       tags: [{ name: '战斗' }, { name: '奇幻' }, { name: '漫画改' }],
-      infobox: [{ key: '动画制作', value: 'ufotable' }],
+      infobox: [
+        { key: '动画制作', value: 'ufotable' },
+        { key: '原作', value: [{ v: '奈须蘑菇' }] },
+        { key: '导演', value: '测试监督' },
+      ],
       characters: [{ name: '主角A', actors: [{ name: '花泽香菜' }, { name: '佐仓绫音' }] }],
     };
     const guess = {
@@ -124,12 +128,18 @@ describe('compareGuessOverlap', () => {
       name: 'guess',
       name_cn: '猜测动画',
       tags: [{ name: '战斗' }, { name: '校园' }, { name: '漫画改' }],
-      infobox: [{ key: '动画制作', value: [{ v: 'ufotable' }, { v: 'A-1 Pictures' }] }],
+      infobox: [
+        { key: '动画制作', value: [{ v: 'ufotable' }, { v: 'A-1 Pictures' }] },
+        { key: '原作者', value: [{ v: '奈须蘑菇' }, { v: '虚渊玄' }] },
+        { key: '监督', value: '测试监督' },
+      ],
       characters: [{ name: '角色B', actors: [{ name: '花泽香菜' }, { name: '早见沙织' }] }],
     };
 
     expect(compareGuessOverlap(guess, answer)).toEqual([
       { label: '相同标签', values: ['战斗', '漫画改'] },
+      { label: '相同原作者', values: ['奈须蘑菇'] },
+      { label: '相同导演', values: ['测试监督'] },
       { label: '共同参与配音的声优', values: ['花泽香菜'] },
       { label: '相同制作公司', values: ['ufotable'] },
     ]);
