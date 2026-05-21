@@ -112,4 +112,16 @@ describe('app layout controls', () => {
     expect(source).toContain('历史题目');
     expect(source).toContain('v-for="item in historyItems"');
   });
+
+  test('persists settings immediately on input/change so refresh keeps the latest values', () => {
+    const source = appVue();
+    const settingsForm = source.match(/<div\s+[\s\S]*?class="mt-6 grid grid-cols-2 gap-3 text-sm text-slate-700"[\s\S]*?>/)?.[0] || '';
+
+    expect(source).toContain("const SETTINGS_STORAGE_KEY = 'anime-guess-ai:game-settings'");
+    expect(source).toContain('localStorage.getItem(SETTINGS_STORAGE_KEY)');
+    expect(source).toContain('localStorage.setItem(SETTINGS_STORAGE_KEY');
+    expect(source).toContain('onMounted(loadSettings)');
+    expect(settingsForm).toContain('@input="saveSettings"');
+    expect(settingsForm).toContain('@change="saveSettings"');
+  });
 });

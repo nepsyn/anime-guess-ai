@@ -640,7 +640,11 @@ async function submitGuess(item = selected.value) {
       </div>
       <p class="mt-2 text-sm text-slate-500">调整筛选条件后，点击“开始新游戏”会按新条件重新抽取动画。</p>
 
-      <div class="mt-6 grid grid-cols-2 gap-3 text-sm text-slate-700">
+      <div
+        class="mt-6 grid grid-cols-2 gap-3 text-sm text-slate-700"
+        @input="saveSettings"
+        @change="saveSettings"
+      >
         <label
           >起始年份<input
             v-model.number="filters.yearFrom"
