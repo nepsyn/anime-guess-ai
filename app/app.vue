@@ -392,34 +392,25 @@ async function submitGuess(item = selected.value) {
   >
     <div class="mx-auto max-w-4xl space-y-3">
       <section class="glass rounded-3xl px-3 py-4 sm:px-4">
-        <div>
-          <p class="text-xs font-medium text-indigo-600">Anime Guess！</p>
-          <div class="mt-1 flex flex-wrap items-center gap-2">
-            <h1 class="text-2xl font-bold text-slate-950 sm:text-3xl">二次元婆罗门猜猜乐</h1>
-            <a
-              :href="GITHUB_URL"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="在 GitHub 查看项目"
-              class="inline-flex h-8 items-center gap-1 rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm hover:border-indigo-200 hover:bg-indigo-50"
-            >
-              <i class="fa-brands fa-github"></i>GitHub
-            </a>
-            <a
-              :href="GITHUB_URL"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="给项目点 Star"
-              class="inline-flex h-8 items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 text-xs font-semibold text-amber-700 shadow-sm hover:bg-amber-100"
-            >
-              <i class="fa-solid fa-star"></i>Star
-            </a>
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p class="text-xs font-medium text-indigo-600">Anime Guess！</p>
+            <h1 class="mt-1 text-2xl font-bold text-slate-950 sm:text-3xl">二次元婆罗门猜猜乐</h1>
           </div>
-          <p class="mt-2 max-w-3xl text-xs leading-5 text-slate-600 sm:text-sm">
-            AI 根据你的筛选条件或 Bangumi 看过收藏随机抽取动画。开局会给出初始提示；每局共 10
-            轮提示，线索会逐步更接近核心信息。开局20分，每次提问-1分，提示-2分，猜错-3分。
-          </p>
+          <a
+            :href="GITHUB_URL"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="在 GitHub 查看项目"
+            class="inline-flex h-9 shrink-0 items-center justify-center gap-1 rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm hover:border-indigo-200 hover:bg-indigo-50"
+          >
+            <i class="fa-brands fa-github"></i>GitHub
+          </a>
         </div>
+        <p class="mt-2 max-w-3xl text-xs leading-5 text-slate-600 sm:text-sm">
+          AI 根据你的筛选条件或 Bangumi 看过收藏随机抽取动画。开局会给出初始提示；每局共 10
+          轮提示，线索会逐步更接近核心信息。开局20分，每次提问-1分，提示-2分，猜错-3分。
+        </p>
         <div class="mt-3 flex flex-wrap items-center gap-2">
           <button
             :disabled="loading"

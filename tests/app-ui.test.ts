@@ -167,15 +167,16 @@ describe('app layout controls', () => {
     expect(source).toContain('question = savedQuestion');
   });
 
-  test('shows GitHub and star buttons next to the title', () => {
+  test('places title and a single GitHub button on opposite sides', () => {
     const source = appVue();
 
     expect(source).toContain('https://github.com/nepsyn/anime-guess-ai');
     expect(source).toContain('GitHub');
-    expect(source).toContain('Star');
     expect(source).toContain('fa-github');
-    expect(source).toContain('fa-star');
     expect(source).toContain('aria-label="在 GitHub 查看项目"');
-    expect(source).toContain('aria-label="给项目点 Star"');
+    expect(source).toContain('class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"');
+    expect(source).not.toContain('>Star');
+    expect(source).not.toContain('fa-star');
+    expect(source).not.toContain('aria-label="给项目点 Star"');
   });
 });
