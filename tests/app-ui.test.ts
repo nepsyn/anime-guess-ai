@@ -150,6 +150,7 @@ describe('app layout controls', () => {
     expect(source).toContain('共同参与配音的声优');
     expect(source).toContain('相同制作公司');
     expect(source).toContain('v-if="item.similarities?.length"');
+    expect(source).toContain('<p class="text-xs font-semibold text-emerald-700">相同标签</p>');
     expect(source).toContain('v-for="value in hint.values"');
     expect(source).toContain('{{ value }}');
     expect(source).toContain('rounded-md bg-emerald-50');
@@ -168,11 +169,16 @@ describe('app layout controls', () => {
     expect(source).toContain('开局20分，每次提问-1分，提示-2分，猜错-3分。');
     expect(source).not.toContain('开局20分，每次提示-2分，每次提问-1分，猜错-3分。');
     expect(source).toContain("const QUESTION_HISTORY_STORAGE_KEY = 'anime-guess-ai:question-history'");
-    expect(source).toContain('questionHistory.value = next.slice(0, 10)');
+    expect(source).toContain('questionHistory.value = next.slice(0, 8)');
+    expect(source).toContain('parsed.map(String).filter(Boolean).slice(0, 8)');
+    expect(source).not.toContain('questionHistory.value = next.slice(0, 10)');
     expect(source).toContain('saveQuestionHistory(q)');
     expect(source).toContain('最近提问');
     expect(source).toContain('v-for="savedQuestion in questionHistory"');
-    expect(source).toContain('question = savedQuestion');
+    expect(source).toContain(':disabled="!canPlay || loading"');
+    expect(source).toContain('@click="useSavedQuestion(savedQuestion)"');
+    expect(source).toContain('function useSavedQuestion(savedQuestion: string)');
+    expect(source).toContain('if (loading.value || !canPlay.value) return;');
   });
 
   test('keeps title and compact GitHub action side by side on mobile', () => {

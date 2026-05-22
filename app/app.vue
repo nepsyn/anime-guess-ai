@@ -181,7 +181,7 @@ function loadQuestionHistory() {
   if (!import.meta.client) return;
   try {
     const parsed = JSON.parse(localStorage.getItem(QUESTION_HISTORY_STORAGE_KEY) || '[]');
-    questionHistory.value = Array.isArray(parsed) ? parsed.map(String).filter(Boolean).slice(0, 10) : [];
+    questionHistory.value = Array.isArray(parsed) ? parsed.map(String).filter(Boolean).slice(0, 8) : [];
   } catch {
     questionHistory.value = [];
   }
@@ -192,7 +192,7 @@ function saveQuestionHistory(text: string) {
   const normalized = text.trim();
   if (!normalized) return;
   const next = [normalized, ...questionHistory.value.filter((item) => item !== normalized)];
-  questionHistory.value = next.slice(0, 10);
+  questionHistory.value = next.slice(0, 8);
   localStorage.setItem(QUESTION_HISTORY_STORAGE_KEY, JSON.stringify(questionHistory.value));
 }
 
@@ -294,6 +294,12 @@ async function startGame() {
   } finally {
     loading.value = false;
   }
+}
+
+function useSavedQuestion(savedQuestion: string) {
+  if (loading.value || !canPlay.value) return;
+  question.value = savedQuestion;
+  ask();
 }
 
 async function ask() {
@@ -515,9 +521,9 @@ async function submitGuess(item = selected.value) {
           <button
             v-for="savedQuestion in questionHistory"
             :key="savedQuestion"
-            :disabled="!canPlay"
+            :disabled="!canPlay || loading"
             class="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-slate-600 shadow-sm hover:border-indigo-200 hover:bg-indigo-50 disabled:opacity-40"
-            @click="question = savedQuestion; ask()"
+            @click="useSavedQuestion(savedQuestion)"
           >
             {{ savedQuestion }}
           </button>
@@ -600,15 +606,18 @@ async function submitGuess(item = selected.value) {
                     >
                   </template>
                 </p>
-                <div v-if="item.similarities?.length" class="flex flex-wrap gap-2">
-                  <template v-for="hint in item.similarities" :key="hint.label">
-                    <span
-                      v-for="value in hint.values"
-                      :key="`${hint.label}-${value}`"
-                      class="rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100"
-                      >{{ value }}</span
-                    >
-                  </template>
+                <div v-if="item.similarities?.length" class="space-y-1">
+                  <p class="text-xs font-semibold text-emerald-700">相同标签</p>
+                  <div class="flex flex-wrap gap-2">
+                    <template v-for="hint in item.similarities" :key="hint.label">
+                      <span
+                        v-for="value in hint.values"
+                        :key="`${hint.label}-${value}`"
+                        class="rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100"
+                        >{{ value }}</span
+                      >
+                    </template>
+                  </div>
                 </div>
               </div>
             </div>
