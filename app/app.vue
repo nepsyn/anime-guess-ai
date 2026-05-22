@@ -181,7 +181,7 @@ function loadQuestionHistory() {
   if (!import.meta.client) return;
   try {
     const parsed = JSON.parse(localStorage.getItem(QUESTION_HISTORY_STORAGE_KEY) || '[]');
-    questionHistory.value = Array.isArray(parsed) ? parsed.map(String).filter(Boolean).slice(0, 8) : [];
+    questionHistory.value = Array.isArray(parsed) ? parsed.map(String).filter(Boolean).slice(0, 10) : [];
   } catch {
     questionHistory.value = [];
   }
@@ -192,7 +192,7 @@ function saveQuestionHistory(text: string) {
   const normalized = text.trim();
   if (!normalized) return;
   const next = [normalized, ...questionHistory.value.filter((item) => item !== normalized)];
-  questionHistory.value = next.slice(0, 8);
+  questionHistory.value = next.slice(0, 10);
   localStorage.setItem(QUESTION_HISTORY_STORAGE_KEY, JSON.stringify(questionHistory.value));
 }
 
@@ -601,12 +601,14 @@ async function submitGuess(item = selected.value) {
                   </template>
                 </p>
                 <div v-if="item.similarities?.length" class="flex flex-wrap gap-2">
-                  <span
-                    v-for="hint in item.similarities"
-                    :key="hint.label"
-                    class="rounded-full bg-white px-2.5 py-1 text-xs items-center text-rose-700 ring-1 ring-rose-100"
-                    >{{ hint.label }}：{{ hint.values.join('、') }}</span
-                  >
+                  <template v-for="hint in item.similarities" :key="hint.label">
+                    <span
+                      v-for="value in hint.values"
+                      :key="`${hint.label}-${value}`"
+                      class="rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100"
+                      >{{ value }}</span
+                    >
+                  </template>
                 </div>
               </div>
             </div>

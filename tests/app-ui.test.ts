@@ -150,6 +150,11 @@ describe('app layout controls', () => {
     expect(source).toContain('共同参与配音的声优');
     expect(source).toContain('相同制作公司');
     expect(source).toContain('v-if="item.similarities?.length"');
+    expect(source).toContain('v-for="value in hint.values"');
+    expect(source).toContain('{{ value }}');
+    expect(source).toContain('rounded-md bg-emerald-50');
+    expect(source).not.toContain("{{ hint.label }}：{{ hint.values.join('、') }}");
+    expect(source).not.toContain("hint.values.join('、')");
     expect(source).toContain("push({ role: 'player', text: '我猜是：', boldText: guessedTitle, image: item.image, link: `https://bgm.tv/subject/${item.id}`, similarities: res.similarities?.length ? res.similarities : undefined })");
     expect(source).toContain("push({ role: 'system', text: res.message, tone: 'bad' })");
     expect(source).not.toContain("push({ role: 'system', text: res.message, tone: 'bad', similarities:");
