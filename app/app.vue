@@ -62,7 +62,6 @@ const SETTINGS_STORAGE_KEY = 'anime-guess-ai:game-settings';
 const HISTORY_STORAGE_KEY = 'anime-guess-ai:game-history';
 const QUESTION_HISTORY_STORAGE_KEY = 'anime-guess-ai:question-history';
 const GITHUB_URL = 'https://github.com/nepsyn/anime-guess-ai';
-const KNOWN_SIMILARITY_LABELS = ['相同标签', '相同原作者', '相同导演', '共同参与配音的声优', '相同制作公司'];
 
 function aiConfig() {
   return {
@@ -608,12 +607,12 @@ async function submitGuess(item = selected.value) {
                 </p>
                 <div v-if="item.similarities?.length" class="space-y-1">
                   <p class="text-xs font-semibold text-emerald-700">相同标签</p>
-                  <div class="flex flex-wrap gap-2">
+                  <div class="flex flex-wrap gap-1">
                     <template v-for="hint in item.similarities" :key="hint.label">
                       <span
                         v-for="value in hint.values"
                         :key="`${hint.label}-${value}`"
-                        class="rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100"
+                        class="rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100"
                         >{{ value }}</span
                       >
                     </template>
