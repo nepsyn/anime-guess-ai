@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { db, getDatabaseUrl, initDb } from '../server/utils/db';
+import { db, getDatabaseUrl, initDb, cleanupExpiredSubjects } from '../server/utils/db';
 
 describe('database configuration', () => {
   test('uses PostgreSQL connection string from DATABASE_URL', () => {
@@ -49,5 +49,33 @@ describe('database configuration', () => {
 
     expect(Number(rows[0].fetched_at)).toBe(now);
     expect(Number(rows[0].expires_at)).toBe(now + 1000);
+  });
+
+  pgTest('does not delete expired subjects that are still referenced by games', async () => {
+    await initDb();
+    const subjectId = 910_000_000 + Math.floor(Math.random() * 10_000_000);
+    const gameId = `cleanup-fk-${subjectId}`;
+    const now = Date.now();
+
+    try {
+      await db`INSERT INTO subjects (id, payload, related_ids, fetched_at, expires_at)
+        VALUES (${subjectId}, ${JSON.stringify({ id: subjectId, name: 'cleanup-fk-test' })}, '[]', ${now - 2000}, ${now - 1000})`;
+      await db`INSERT INTO games (id, subject_id, filters, used_hints, hint_deck, asked, score, created_at, updated_at)
+        VALUES (${gameId}, ${subjectId}, '{}', '[]', '[]', '[]', 20, ${now}, ${now})`;
+
+      await cleanupExpiredSubjects(now);
+
+      const kept = await db`SELECT id FROM subjects WHERE id = ${subjectId} LIMIT 1`;
+      expect(kept.length).toBe(1);
+
+      await db`DELETE FROM games WHERE id = ${gameId}`;
+      await cleanupExpiredSubjects(now);
+
+      const removed = await db`SELECT id FROM subjects WHERE id = ${subjectId} LIMIT 1`;
+      expect(removed.length).toBe(0);
+    } finally {
+      await db`DELETE FROM games WHERE id = ${gameId}`;
+      await db`DELETE FROM subjects WHERE id = ${subjectId}`;
+    }
   });
 });

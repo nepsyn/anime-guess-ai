@@ -67,5 +67,9 @@ export async function initDb() {
 
 export async function cleanupExpiredSubjects(now = Date.now()) {
   await initDb();
-  await db`DELETE FROM subjects WHERE expires_at < ${now}`;
+  await db`DELETE FROM subjects s
+    WHERE s.expires_at < ${now}
+      AND NOT EXISTS (
+        SELECT 1 FROM games g WHERE g.subject_id = s.id
+      )`;
 }
