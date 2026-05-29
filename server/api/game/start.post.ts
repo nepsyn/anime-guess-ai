@@ -1,11 +1,10 @@
-import { db, initDb, cleanupExpiredSubjects } from '../../utils/db';
+import { db, cleanupExpiredSubjects } from '../../utils/db';
 import { findRandomCollectedSubject, findRandomSubject, getRelatedSubjectIds, getSubjectWithCharacters } from '../../utils/bangumi';
 import { buildHintDeck, HINT_LIMIT, INITIAL_SCORE, API_QUOTA_EXCEEDED_MESSAGE } from '../../utils/game';
 
 const TTL_MS = Number(process.env.SUBJECT_CACHE_TTL_MS || 7 * 24 * 60 * 60 * 1000);
 
 export default defineEventHandler(async (event) => {
-  await initDb();
   await cleanupExpiredSubjects();
   const body = await readBody(event);
   const filters = body?.filters || {};

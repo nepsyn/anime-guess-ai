@@ -62,6 +62,8 @@ export async function initDb() {
   try {
     await db`ALTER TABLE games ALTER COLUMN updated_at TYPE BIGINT`;
   } catch {}
+  await db`CREATE INDEX IF NOT EXISTS subjects_expires_at_idx ON subjects(expires_at)`;
+  await db`CREATE INDEX IF NOT EXISTS games_subject_id_idx ON games(subject_id)`;
   initialized = true;
 }
 

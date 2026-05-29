@@ -1,5 +1,5 @@
 import { db, initDb } from '../../utils/db';
-import { getRelatedSubjectIds, getSubjectWithCharacters } from '../../utils/bangumi';
+import { getRelatedSubjectIds, getSubject } from '../../utils/bangumi';
 import { compareGuessOverlap, deductScore, isCorrectGuess, publicAnswer, WRONG_GUESS_COST } from '../../utils/game';
 
 export default defineEventHandler(async (event) => {
@@ -37,7 +37,7 @@ export default defineEventHandler(async (event) => {
   const score = correct ? currentScore : deductScore(currentScore, WRONG_GUESS_COST);
   let similarities: ReturnType<typeof compareGuessOverlap> = [];
   if (!correct) {
-    const guessedSubject = await getSubjectWithCharacters(guessId);
+    const guessedSubject = await getSubject(guessId);
     similarities = compareGuessOverlap(guessedSubject, subject);
     await db`UPDATE games SET score = ${score}, updated_at = ${Date.now()} WHERE id = ${sessionId}`;
   }

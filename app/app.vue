@@ -57,6 +57,7 @@ const chat = ref<ChatItem[]>([
   { role: 'system', text: '设置筛选条件后开始游戏。AI 会从 Bangumi 随机挑一部动画，你可以问 AI 关于此动画的问题，AI 会回答是/不是/不确定。' },
 ]);
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
+let latestSearchId = 0;
 let settingsHistoryPushed = false;
 const SETTINGS_STORAGE_KEY = 'anime-guess-ai:game-settings';
 const HISTORY_STORAGE_KEY = 'anime-guess-ai:game-history';
@@ -135,7 +136,11 @@ function handleSettingsPopstate() {
 onMounted(loadSettings);
 onMounted(loadQuestionHistory);
 onMounted(() => window.addEventListener('popstate', handleSettingsPopstate));
-onBeforeUnmount(() => window.removeEventListener('popstate', handleSettingsPopstate));
+onBeforeUnmount(() => {
+  window.removeEventListener('popstate', handleSettingsPopstate);
+  if (searchTimer) clearTimeout(searchTimer);
+  latestSearchId += 1;
+});
 watch(settingsSnapshot, saveSettings, { deep: true });
 
 const gameEnded = computed(() => Boolean(revealedAnswer.value));
@@ -371,15 +376,17 @@ async function surrender() {
 
 watch(guessText, (value) => {
   selected.value = null;
+  latestSearchId += 1;
   if (searchTimer) clearTimeout(searchTimer);
   if (!value.trim()) {
     searchResults.value = [];
     return;
   }
+  const query = value.trim();
+  const searchId = latestSearchId;
   searchTimer = setTimeout(async () => {
-    searchResults.value = await $fetch<SearchResult[]>('/api/bangumi/search', { query: { q: value.trim() } }).catch(
-      () => [],
-    );
+    const results = await $fetch<SearchResult[]>('/api/bangumi/search', { query: { q: query } }).catch(() => []);
+    if (searchId === latestSearchId) searchResults.value = results;
   }, 250);
 });
 

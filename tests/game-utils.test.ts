@@ -2,7 +2,6 @@ import { describe, expect, test } from 'bun:test';
 import {
   normalizeFilters,
   isCorrectGuess,
-  pickHint,
   buildHintDeck,
   HINT_LIMIT,
   deductScore,
@@ -112,7 +111,7 @@ const sampleSubject = {
 };
 
 describe('compareGuessOverlap', () => {
-  test('returns deterministic shared tags, original creators, directors, voice actors, and production companies', () => {
+  test('returns deterministic shared tags', () => {
     const answer = {
       ...sampleSubject,
       tags: [{ name: '战斗' }, { name: '奇幻' }, { name: '漫画改' }],
@@ -136,22 +135,7 @@ describe('compareGuessOverlap', () => {
       characters: [{ name: '角色B', actors: [{ name: '花泽香菜' }, { name: '早见沙织' }] }],
     };
 
-    expect(compareGuessOverlap(guess, answer)).toEqual([
-      { label: '相同标签', values: ['战斗', '漫画改'] },
-      { label: '相同原作者', values: ['奈须蘑菇'] },
-      { label: '相同导演', values: ['测试监督'] },
-      { label: '共同参与配音的声优', values: ['花泽香菜'] },
-      { label: '相同制作公司', values: ['ufotable'] },
-    ]);
-  });
-});
-
-describe('pickHint fallback', () => {
-  test('generates a deterministic unrevealed fallback hint from cached subject data', () => {
-    const hint = pickHint(sampleSubject, new Set(), 0);
-
-    expect(hint).toContain('2014');
-    expect(hint).not.toContain('测试动画');
+    expect(compareGuessOverlap(guess, answer)).toEqual([{ label: '相同标签', values: ['战斗', '漫画改'] }]);
   });
 });
 

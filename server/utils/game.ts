@@ -142,19 +142,6 @@ export function publicAnswer(subject: any) {
 
 export type SimilarityHint = { label: string; values: string[] };
 
-function collectTextValues(value: any): string[] {
-  if (value === null || value === undefined) return [];
-  if (typeof value === 'string' || typeof value === 'number') return [String(value).trim()].filter(Boolean);
-  if (Array.isArray(value)) return value.flatMap(collectTextValues);
-  if (typeof value === 'object') {
-    return [value.name_cn, value.name, value.v, value.value]
-      .flatMap(collectTextValues)
-      .map((item) => item.trim())
-      .filter(Boolean);
-  }
-  return [];
-}
-
 function uniqueClean(values: string[]) {
   const seen = new Set<string>();
   const result: string[] = [];
@@ -177,52 +164,9 @@ function subjectTags(subject: any) {
   return uniqueClean((subject?.tags || []).map((tag: any) => tag?.name || tag).filter(Boolean));
 }
 
-function infoboxValues(subject: any, keyMatcher: (key: string) => boolean) {
-  return uniqueClean(
-    (subject?.infobox || [])
-      .filter((item: any) => keyMatcher(String(item?.key || '')))
-      .flatMap((item: any) => collectTextValues(item?.value)),
-  );
-}
-
-function voiceActors(subject: any) {
-  const fromCharacters = (subject?.characters || []).flatMap((character: any) =>
-    (character?.actors || []).flatMap((actor: any) => collectTextValues(actor)),
-  );
-  const fromInfobox = infoboxValues(subject, (key) => key.includes('声优') || key.includes('配音'));
-  return uniqueClean([...fromCharacters, ...fromInfobox]);
-}
-
-function productionCompanies(subject: any) {
-  return infoboxValues(
-    subject,
-    (key) => key.includes('动画制作') || key === '制作' || key.includes('制作公司') || key.includes('制作协力'),
-  );
-}
-
-function originalCreators(subject: any) {
-  return infoboxValues(
-    subject,
-    (key) => key === '原作' || key.includes('原作者') || key.includes('原案') || key.includes('原著'),
-  );
-}
-
-function directors(subject: any) {
-  return infoboxValues(
-    subject,
-    (key) => key === '导演' || key === '监督' || key.includes('总导演') || key.includes('总监督'),
-  );
-}
-
 export function compareGuessOverlap(guess: any, answer: any): SimilarityHint[] {
-  const groups: SimilarityHint[] = [
-    { label: '相同标签', values: intersection(subjectTags(guess), subjectTags(answer)) },
-    { label: '相同原作者', values: intersection(originalCreators(guess), originalCreators(answer)) },
-    { label: '相同导演', values: intersection(directors(guess), directors(answer)) },
-    { label: '共同参与配音的声优', values: intersection(voiceActors(guess), voiceActors(answer)) },
-    { label: '相同制作公司', values: intersection(productionCompanies(guess), productionCompanies(answer)) },
-  ];
-  return groups.filter((group) => group.values.length > 0);
+  const sharedTags = intersection(subjectTags(guess), subjectTags(answer));
+  return sharedTags.length ? [{ label: '相同标签', values: sharedTags }] : [];
 }
 
 function titleTokens(subject: any) {
@@ -249,19 +193,6 @@ export function hintResponseFromUsedCount(hint: string, usedCount: number, score
     exhausted: !hint && remainingHints === 0,
     score,
   };
-}
-
-export function pickHint(subject: any, used = new Set<string>(), index = 0) {
-  const compact = compactSubjectForAi(subject);
-  const candidates = [
-    compact.date ? `播出时间约为「${String(compact.date).slice(0, 7)}」。` : '',
-    compact.meta_tags?.length ? `类型标签包含「${compact.meta_tags.join('、')}」。` : '',
-    compact.rating?.score ? `Bangumi 评分约「${compact.rating.score}」。` : '',
-    compact.tags?.length ? `关键标签包括「${compact.tags.slice(0, 3).join('、')}」。` : '',
-    compact.summary ? `故事简介：${String(compact.summary).slice(0, 60)}` : '',
-  ].filter(Boolean);
-  const safe = candidates.filter((hint) => !used.has(hint));
-  return safe[index % Math.max(1, safe.length)] || '这部动画的公开资料较少。';
 }
 
 export function configuredProvider(input?: string): AiProvider {

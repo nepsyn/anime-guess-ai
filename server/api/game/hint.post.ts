@@ -6,10 +6,8 @@ export default defineEventHandler(async (event) => {
   const body = await readBody(event);
   const sessionId = String(body?.sessionId || '');
   if (!sessionId) throw createError({ statusCode: 400, statusMessage: '缺少 sessionId' });
-  const rows =
-    await db`SELECT g.used_hints, g.hint_deck, g.score, s.payload FROM games g JOIN subjects s ON s.id = g.subject_id WHERE g.id = ${sessionId} LIMIT 1`;
+  const rows = await db`SELECT g.used_hints, g.hint_deck, g.score FROM games g WHERE g.id = ${sessionId} LIMIT 1`;
   if (!rows.length) throw createError({ statusCode: 404, statusMessage: '游戏不存在或已过期' });
-  const subject = JSON.parse(rows[0].payload);
   const used = JSON.parse(rows[0].used_hints || '[]');
   if (used.length >= HINT_LIMIT) {
     return {
