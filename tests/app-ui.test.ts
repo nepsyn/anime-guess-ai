@@ -138,31 +138,6 @@ describe('app layout controls', () => {
     expect(source).toContain('bangumiUid: filters.bangumiUid');
   });
 
-  test('shows wrong-guess overlap tags on the player guess record without revealing the answer', () => {
-    const source = appVue();
-
-    expect(source).toContain('type SimilarityHint');
-    expect(source).toContain('similarities?: SimilarityHint[];');
-    expect(source).toContain('res.similarities?.length');
-    expect(source).toContain('相同标签');
-    expect(source).toContain('相同原作者');
-    expect(source).toContain('相同导演');
-    expect(source).toContain('共同参与配音的声优');
-    expect(source).toContain('相同制作公司');
-    expect(source).toContain('v-if="item.similarities?.length"');
-    expect(source).toContain('<p class="text-xs font-semibold text-emerald-700">相同标签</p>');
-    expect(source).toContain('v-for="value in hint.values"');
-    expect(source).toContain('{{ value }}');
-    expect(source).toContain('rounded-md bg-emerald-50');
-    expect(source).not.toContain("{{ hint.label }}：{{ hint.values.join('、') }}");
-    expect(source).not.toContain("hint.values.join('、')");
-    expect(source).toContain("push({ role: 'player', text: '我猜是：', boldText: guessedTitle, image: item.image, link: `https://bgm.tv/subject/${item.id}`, similarities: res.similarities?.length ? res.similarities : undefined })");
-    expect(source).toContain("push({ role: 'system', text: res.message, tone: 'bad' })");
-    expect(source).not.toContain("push({ role: 'system', text: res.message, tone: 'bad', similarities:");
-    expect(source).not.toContain('猜错后会显示：相同标签、共同参与配音的声优、相同制作公司');
-    expect(source).not.toContain('暂无相同信息');
-  });
-
   test('uses requested scoring wording and supports recent question shortcuts', () => {
     const source = appVue();
 

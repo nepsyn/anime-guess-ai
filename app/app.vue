@@ -605,22 +605,17 @@ async function submitGuess(item = selected.value) {
                     >
                   </template>
                 </p>
-                <div v-if="item.similarities?.length" class="space-y-2">
-                  <div v-for="hint in item.similarities" :key="hint.label" class="space-y-1">
-                    <template v-if="hint.label === '相同标签'"><p class="text-xs font-semibold text-emerald-700">相同标签</p></template>
-                    <p v-else-if="hint.label === '相同原作者'" class="text-xs font-semibold text-emerald-700">相同原作者</p>
-                    <p v-else-if="hint.label === '相同导演'" class="text-xs font-semibold text-emerald-700">相同导演</p>
-                    <p v-else-if="hint.label === '共同参与配音的声优'" class="text-xs font-semibold text-emerald-700">共同参与配音的声优</p>
-                    <p v-else-if="hint.label === '相同制作公司'" class="text-xs font-semibold text-emerald-700">相同制作公司</p>
-                    <p v-else class="text-xs font-semibold text-emerald-700">{{ hint.label }}</p>
-                    <div class="flex flex-wrap gap-1">
+                <div v-if="item.similarities?.length" class="space-y-1">
+                  <p class="text-xs font-semibold text-emerald-700">相同标签</p>
+                  <div class="flex flex-wrap gap-1">
+                    <template v-for="hint in item.similarities" :key="hint.label">
                       <span
                         v-for="value in hint.values"
                         :key="`${hint.label}-${value}`"
                         class="rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100"
                         >{{ value }}</span
                       >
-                    </div>
+                    </template>
                   </div>
                 </div>
               </div>
